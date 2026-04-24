@@ -42,39 +42,14 @@ type Turn = {
 type ConnectionState = "idle" | "connecting" | "connected" | "error";
 type SpeechState = "idle" | "listening" | "resolving" | "speaking";
 
-type SpeechRecognitionResult = {
-  isFinal: boolean;
-  [index: number]: {
-    transcript: string;
+type RealtimeEvent = {
+  type?: string;
+  transcript?: string;
+  delta?: string;
+  error?: {
+    message?: string;
   };
 };
-
-type SpeechRecognitionEvent = Event & {
-  resultIndex: number;
-  results: {
-    length: number;
-    [index: number]: SpeechRecognitionResult;
-  };
-};
-
-type SpeechRecognitionErrorEvent = Event & {
-  error?: string;
-  message?: string;
-};
-
-type BrowserSpeechRecognition = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onend: (() => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-};
-
-type SpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://127.0.0.1:8787";
 
@@ -100,14 +75,11 @@ function App() {
   const [draft, setDraft] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [supportsSpeechRecognition, setSupportsSpeechRecognition] = useState(true);
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
-  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const shouldListenRef = useRef(false);
-  const speechTimeoutRef = useRef<number | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
   const speechRecoveryTimeoutRef = useRef<number | null>(null);
 
   const isConnected = connectionState === "connected";
@@ -126,11 +98,24 @@ function App() {
       const peerConnection = new RTCPeerConnection();
       peerConnectionRef.current = peerConnection;
 
+      const micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      micStreamRef.current = micStream;
+      setMicEnabled(false);
+
       const audioElement = document.createElement("audio");
       audioElement.autoplay = true;
       audioRef.current = audioElement;
 
-      peerConnection.addTransceiver("audio", { direction: "recvonly" });
+      for (const track of micStream.getAudioTracks()) {
+        peerConnection.addTrack(track, micStream);
+      }
+
       peerConnection.ontrack = (event) => {
         audioElement.srcObject = event.streams[0];
       };
@@ -139,15 +124,7 @@ function App() {
       dataChannelRef.current = dataChannel;
 
       dataChannel.addEventListener("message", (event) => {
-        const realtimeEvent = safeJsonParse(event.data);
-        if (
-          realtimeEvent?.type === "response.audio.done" ||
-          realtimeEvent?.type === "response.done"
-        ) {
-          clearSpeechTimeout();
-          clearSpeechRecoveryTimeout();
-          setSpeechState("idle");
-        }
+        void handleRealtimeEvent(event.data);
       });
 
       const offer = await peerConnection.createOffer();
@@ -177,7 +154,7 @@ function App() {
       await waitForDataChannelOpen(dataChannel);
 
       setConnectionState("connected");
-      startListening(true);
+      setSpeechState("idle");
     } catch (error) {
       disconnect();
       setConnectionState("error");
@@ -187,100 +164,85 @@ function App() {
   }
 
   function disconnect() {
-    shouldListenRef.current = false;
-    recognitionRef.current?.abort();
-    recognitionRef.current = null;
     dataChannelRef.current?.close();
     dataChannelRef.current = null;
     peerConnectionRef.current?.close();
     peerConnectionRef.current = null;
+    micStreamRef.current?.getTracks().forEach((track) => {
+      track.stop();
+    });
+    micStreamRef.current = null;
     audioRef.current?.remove();
     audioRef.current = null;
-    clearSpeechTimeout();
     clearSpeechRecoveryTimeout();
-    window.speechSynthesis.cancel();
     setInterimTranscript("");
     setSpeechState("idle");
     setConnectionState("idle");
   }
 
-  function startListening(force = false) {
-    if (!force && !isConnected) {
+  function startListening() {
+    if (!isConnected) {
       return;
     }
 
-    const SpeechRecognition =
-      window.SpeechRecognition ?? window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setSupportsSpeechRecognition(false);
-      setSpeechState("idle");
-      return;
-    }
-
-    setSupportsSpeechRecognition(true);
-    shouldListenRef.current = true;
-    recognitionRef.current?.abort();
-
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = "fi-FI";
-
-    recognition.onresult = (event) => {
-      let finalTranscript = "";
-      let interim = "";
-
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const result = event.results[index];
-        const transcript = result[0].transcript.trim();
-
-        if (result.isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interim = transcript;
-        }
-      }
-
-      setInterimTranscript(interim);
-
-      if (finalTranscript) {
-        shouldListenRef.current = false;
-        void handleTranscript(finalTranscript);
-      }
-    };
-
-    recognition.onerror = (event) => {
-      setErrorMessage(
-        `Speech recognition stopped${event.error ? `: ${event.error}` : ""}. Use the text input if this browser cannot access a microphone.`
-      );
-      setSpeechState("idle");
-    };
-
-    recognition.onend = () => {
-      if (shouldListenRef.current) {
-        setSpeechState("idle");
-        shouldListenRef.current = false;
-      }
-    };
-
-    try {
-      recognition.start();
-      setSpeechState("listening");
-    } catch {
-      setSpeechState("idle");
-    }
+    setErrorMessage("");
+    setInterimTranscript("");
+    setMicEnabled(true);
+    setSpeechState("listening");
   }
 
   function stopListening() {
-    shouldListenRef.current = false;
-    recognitionRef.current?.stop();
+    setMicEnabled(false);
     setInterimTranscript("");
     setSpeechState("idle");
   }
 
-  async function handleTranscript(transcript: string) {
+  async function handleRealtimeEvent(rawEvent: string) {
+    const realtimeEvent = safeJsonParse(rawEvent);
+
+    if (!realtimeEvent) {
+      return;
+    }
+
+    if (realtimeEvent.type === "input_audio_buffer.speech_started") {
+      setSpeechState("listening");
+      return;
+    }
+
+    if (
+      realtimeEvent.type === "conversation.item.input_audio_transcription.delta" &&
+      realtimeEvent.delta
+    ) {
+      setInterimTranscript((current) => `${current}${realtimeEvent.delta}`);
+      return;
+    }
+
+    if (
+      realtimeEvent.type === "conversation.item.input_audio_transcription.completed" &&
+      realtimeEvent.transcript
+    ) {
+      stopListening();
+      await handleFinalTranscript(realtimeEvent.transcript);
+      return;
+    }
+
+    if (
+      realtimeEvent.type === "response.output_audio.done" ||
+      realtimeEvent.type === "response.done"
+    ) {
+      clearSpeechRecoveryTimeout();
+      setSpeechState("idle");
+      return;
+    }
+
+    if (realtimeEvent.type === "error") {
+      clearSpeechRecoveryTimeout();
+      setSpeechState("idle");
+      setErrorMessage(realtimeEvent.error?.message ?? "Realtime session error");
+    }
+  }
+
+  async function handleFinalTranscript(transcript: string) {
     const cleanTranscript = transcript.trim();
 
     if (!cleanTranscript) {
@@ -297,7 +259,7 @@ function App() {
       appendTurn("assistant", nextDecision.approved_text_fi, nextDecision.mode);
       speakApprovedText(nextDecision.approved_text_fi);
     } catch (error) {
-      setSpeechState("listening");
+      setSpeechState("idle");
       setErrorMessage(formatError(error));
     }
   }
@@ -310,7 +272,7 @@ function App() {
     }
 
     setDraft("");
-    await handleTranscript(transcript);
+    await handleFinalTranscript(transcript);
   }
 
   async function resolveTurn(transcript: string) {
@@ -344,25 +306,11 @@ function App() {
           },
         })
       );
-      startSpeechTimeout(text);
       return;
     }
 
-    speakWithBrowserVoice(text);
-  }
-
-  function startSpeechTimeout(text: string) {
-    clearSpeechTimeout();
-    speechTimeoutRef.current = window.setTimeout(() => {
-      speakWithBrowserVoice(text);
-    }, 2500);
-  }
-
-  function clearSpeechTimeout() {
-    if (speechTimeoutRef.current) {
-      window.clearTimeout(speechTimeoutRef.current);
-      speechTimeoutRef.current = null;
-    }
+    setSpeechState("idle");
+    setErrorMessage("Realtime data channel is not open. Connect before sending a turn.");
   }
 
   function startSpeechRecoveryTimeout() {
@@ -379,21 +327,10 @@ function App() {
     }
   }
 
-  function speakWithBrowserVoice(text: string) {
-    clearSpeechTimeout();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "fi-FI";
-    utterance.rate = 0.96;
-    utterance.onend = () => {
-      clearSpeechRecoveryTimeout();
-      setSpeechState("idle");
-    };
-    utterance.onerror = () => {
-      clearSpeechRecoveryTimeout();
-      setSpeechState("idle");
-    };
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+  function setMicEnabled(enabled: boolean) {
+    micStreamRef.current?.getAudioTracks().forEach((track) => {
+      track.enabled = enabled;
+    });
   }
 
   function appendTurn(speaker: Turn["speaker"], text: string, mode?: DecisionMode) {
@@ -478,7 +415,7 @@ function App() {
               <div className="flex min-h-[340px] flex-1 flex-col gap-3 rounded-md border bg-muted/20 p-3">
                 {turns.length === 0 ? (
                   <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                    Connect, speak in Finnish, or use the text input below.
+                    Connect, click Listen, then speak in Finnish.
                   </div>
                 ) : (
                   turns.map((turn) => (
@@ -516,11 +453,12 @@ function App() {
                 />
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs text-muted-foreground">
-                    {supportsSpeechRecognition
-                      ? "Speech recognition is available in this browser."
-                      : "Speech recognition is unavailable; use text input."}
+                    Debug text turn. Voice input uses OpenAI Realtime transcription.
                   </p>
-                  <Button onClick={submitDraft} disabled={!draft.trim()}>
+                  <Button
+                    onClick={submitDraft}
+                    disabled={!draft.trim() || !isConnected || speechState === "resolving" || speechState === "speaking"}
+                  >
                     <SendIcon data-icon="inline-start" />
                     Send
                   </Button>
@@ -598,7 +536,7 @@ function DebugRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function safeJsonParse(raw: string) {
+function safeJsonParse(raw: string): RealtimeEvent | null {
   try {
     return JSON.parse(raw);
   } catch {
@@ -642,13 +580,6 @@ function waitForDataChannelOpen(dataChannel: RTCDataChannel) {
       { once: true }
     );
   });
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
 }
 
 export default App;

@@ -9,6 +9,10 @@ const HOST = process.env.HOST ?? "127.0.0.1";
 const PORT = Number(process.env.PORT ?? 8787);
 const REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL ?? "gpt-realtime";
 const REALTIME_VOICE = process.env.OPENAI_REALTIME_VOICE ?? "marin";
+const REALTIME_TRANSCRIPTION_MODEL =
+  process.env.OPENAI_REALTIME_TRANSCRIPTION_MODEL ?? "gpt-4o-transcribe";
+const REALTIME_TRANSCRIPTION_LANGUAGE =
+  process.env.OPENAI_REALTIME_TRANSCRIPTION_LANGUAGE ?? "fi";
 const DEFAULT_REALTIME_PROMPT_ID = "pmpt_69eafbd8d1d881938d6169b79a9cb4a90cee44e456b6540a";
 const DEFAULT_REALTIME_PROMPT_VERSION = "2";
 const REALTIME_INSTRUCTIONS = [
@@ -145,6 +149,20 @@ async function createRealtimeSession(sdp) {
     model: REALTIME_MODEL,
     instructions: REALTIME_INSTRUCTIONS,
     audio: {
+      input: {
+        transcription: {
+          model: REALTIME_TRANSCRIPTION_MODEL,
+          language: REALTIME_TRANSCRIPTION_LANGUAGE,
+        },
+        turn_detection: {
+          type: "server_vad",
+          threshold: 0.5,
+          prefix_padding_ms: 300,
+          silence_duration_ms: 700,
+          create_response: false,
+          interrupt_response: false,
+        },
+      },
       output: {
         voice: REALTIME_VOICE,
       },
@@ -199,6 +217,8 @@ function publicRealtimeConfig() {
   return {
     model: REALTIME_MODEL,
     voice: REALTIME_VOICE,
+    transcription_model: REALTIME_TRANSCRIPTION_MODEL,
+    transcription_language: REALTIME_TRANSCRIPTION_LANGUAGE,
     prompt,
   };
 }

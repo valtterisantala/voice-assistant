@@ -46,16 +46,19 @@ Run the browser app in a second terminal:
 npm run realtime:dev
 ```
 
-Open the Vite URL in a desktop browser. Chrome is recommended because the POC uses browser speech recognition for local transcript capture.
+Open the Vite URL in normal desktop Chrome. The Codex in-app browser is useful for checking layout and debug panels, but it is not the primary validation environment for the microphone path.
 
 Flow:
 1. Click Connect.
-2. Speak a short Finnish app-support request.
-3. The browser transcript is sent to `/resolve-turn`.
-4. The approved Finnish resolver text is sent to Realtime for speech.
-5. The debug panel shows `mode`, `case_id`, and `confidence`.
+2. Allow microphone access in Chrome.
+3. Click Listen and speak a short Finnish app-support request.
+4. Mic audio is streamed to OpenAI Realtime over WebRTC.
+5. The finalized Realtime transcript is sent to `/resolve-turn`.
+6. The approved Finnish resolver text is sent back to Realtime.
+7. Realtime generates and plays the assistant audio in the browser.
+8. The debug panel shows `mode`, `case_id`, and `confidence`.
 
-The text input can be used for local testing when browser speech recognition is unavailable.
+The text input is a debug convenience for local resolver testing. It is not the main voice path.
 
 ## Backend turn resolver
 This milestone includes a small local backend stub for the Realtime hard-logic layer.

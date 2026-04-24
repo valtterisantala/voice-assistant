@@ -30,6 +30,8 @@ Run the browser client:
 npm run realtime:dev
 ```
 
+Use normal desktop Chrome for the full voice path. The Codex in-app browser can inspect the UI, but microphone validation should happen in Chrome.
+
 Run bundled sample turns:
 
 ```sh

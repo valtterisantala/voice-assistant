@@ -9,6 +9,8 @@ const HOST = process.env.HOST ?? "127.0.0.1";
 const PORT = Number(process.env.PORT ?? 8787);
 const REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL ?? "gpt-realtime";
 const REALTIME_VOICE = process.env.OPENAI_REALTIME_VOICE ?? "marin";
+const DEFAULT_REALTIME_PROMPT_ID = "pmpt_69eafbd8d1d881938d6169b79a9cb4a90cee44e456b6540a";
+const DEFAULT_REALTIME_PROMPT_VERSION = "2";
 const REALTIME_INSTRUCTIONS = [
   "You are a Neste customer service specialist for generic gas station mobile app scenarios.",
   "Speak concise, calm, natural Finnish.",
@@ -25,6 +27,11 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === "GET" && request.url === "/health") {
     sendJson(response, 200, { ok: true });
+    return;
+  }
+
+  if (request.method === "GET" && request.url === "/realtime-config") {
+    sendJson(response, 200, publicRealtimeConfig());
     return;
   }
 
@@ -133,21 +140,21 @@ function readTextBody(request) {
 }
 
 async function createRealtimeSession(sdp) {
+  const session = {
+    type: "realtime",
+    model: REALTIME_MODEL,
+    instructions: REALTIME_INSTRUCTIONS,
+    audio: {
+      output: {
+        voice: REALTIME_VOICE,
+      },
+    },
+    ...promptConfig(),
+  };
+
   const formData = new FormData();
   formData.set("sdp", sdp);
-  formData.set(
-    "session",
-    JSON.stringify({
-      type: "realtime",
-      model: REALTIME_MODEL,
-      instructions: REALTIME_INSTRUCTIONS,
-      audio: {
-        output: {
-          voice: REALTIME_VOICE,
-        },
-      },
-    })
-  );
+  formData.set("session", JSON.stringify(session));
 
   const realtimeResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
     method: "POST",
@@ -164,6 +171,51 @@ async function createRealtimeSession(sdp) {
   }
 
   return text;
+}
+
+function promptConfig() {
+  const promptId =
+    process.env.OPENAI_REALTIME_PROMPT_ID?.trim() || DEFAULT_REALTIME_PROMPT_ID;
+  const promptVersion =
+    process.env.OPENAI_REALTIME_PROMPT_VERSION?.trim() || DEFAULT_REALTIME_PROMPT_VERSION;
+  const promptVariables = parsePromptVariables();
+
+  if (!promptId) {
+    return {};
+  }
+
+  return {
+    prompt: {
+      id: promptId,
+      ...(promptVersion ? { version: promptVersion } : {}),
+      ...(promptVariables ? { variables: promptVariables } : {}),
+    },
+  };
+}
+
+function publicRealtimeConfig() {
+  const prompt = promptConfig().prompt ?? null;
+
+  return {
+    model: REALTIME_MODEL,
+    voice: REALTIME_VOICE,
+    prompt,
+  };
+}
+
+function parsePromptVariables() {
+  const rawVariables = process.env.OPENAI_REALTIME_PROMPT_VARIABLES;
+
+  if (!rawVariables) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawVariables);
+  } catch {
+    console.warn("Ignoring invalid OPENAI_REALTIME_PROMPT_VARIABLES JSON");
+    return null;
+  }
 }
 
 function loadLocalEnv() {

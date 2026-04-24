@@ -25,6 +25,15 @@ cp .env.example .env
 
 Set `OPENAI_API_KEY` in `apps/realtime/.env`, or export it in the shell that runs the backend.
 
+The Realtime session uses the dashboard prompt from the environment:
+
+```sh
+OPENAI_REALTIME_PROMPT_ID=pmpt_69eafbd8d1d881938d6169b79a9cb4a90cee44e456b6540a
+OPENAI_REALTIME_PROMPT_VERSION=2
+```
+
+`OPENAI_REALTIME_PROMPT_VARIABLES` can be set to a JSON object if the prompt later uses variables. The backend still adds guard instructions so the model only speaks backend-approved resolver text.
+
 Run the backend resolver and Realtime session proxy from the repository root:
 
 ```sh

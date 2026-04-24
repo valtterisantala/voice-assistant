@@ -90,9 +90,15 @@ Use this as the starting behavior in the Realtime layer:
 4. Transcript view and basic status cues.
 5. Simple README notes for how to run the Realtime POC.
 
-## Deferred for later
+## Deferred roadmap items
+These are intentionally out of scope for the current milestone, but should remain visible in planning:
 - TTS-chain comparison POC
 - simulated KB
 - real KB / retrieval
 - client integrations
-- Teams bot implementation
+- Teams bot implementation for deeper Teams-native participation later
+- backend-controlled handoff to a human specialist when a rule or endpoint in the discussion is reached
+- backend-controlled ticket creation to Jira or a Jira-like agentic ticketing system as a proof-of-concept for escalation workflows
+
+## Important future rule
+If and when handoff or ticket creation is added, it must be triggered by backend-approved logic, not by Realtime freestyling an action.

@@ -1,0 +1,22 @@
+[
+  {
+    "name": "answer_station_search",
+    "transcript": "Mistä löydän aseman, jossa on autonpesu?"
+  },
+  {
+    "name": "clarify_general_help",
+    "transcript": "Tarvitsen apua sovelluksen kanssa."
+  },
+  {
+    "name": "escalate_double_charge",
+    "transcript": "Minulta veloitettiin kahdesti samasta ostoksesta."
+  },
+  {
+    "name": "answer_receipt",
+    "transcript": "En löydä kuittia viime viikon tankkauksesta."
+  },
+  {
+    "name": "answer_login",
+    "transcript": "Sovellus ei aukea ja kirjautuminen epäonnistuu."
+  }
+]

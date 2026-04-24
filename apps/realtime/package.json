@@ -1,0 +1,9 @@
+{
+  "name": "@voice-assistant/realtime",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "backend:dev": "node backend/server.js",
+    "resolver:samples": "node backend/sample-runner.js"
+  }
+}

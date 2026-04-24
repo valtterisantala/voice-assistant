@@ -51,7 +51,7 @@ const server = http.createServer(async (request, response) => {
       return;
     }
 
-    if (!sdp) {
+    if (!sdp.trim()) {
       sendJson(response, 400, { error: "Missing SDP offer body" });
       return;
     }
@@ -130,7 +130,7 @@ function readTextBody(request) {
     });
 
     request.on("end", () => {
-      resolve(rawBody.trim());
+      resolve(rawBody);
     });
 
     request.on("error", () => {

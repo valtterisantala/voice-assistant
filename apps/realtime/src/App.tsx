@@ -140,13 +140,18 @@ function App() {
 
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
+      const localSdp = peerConnection.localDescription?.sdp;
+
+      if (!localSdp) {
+        throw new Error("Browser did not create a WebRTC SDP offer.");
+      }
 
       const response = await fetch(`${BACKEND_URL}/realtime-session`, {
         method: "POST",
         headers: {
           "Content-Type": "application/sdp",
         },
-        body: offer.sdp,
+        body: localSdp,
       });
 
       if (!response.ok) {

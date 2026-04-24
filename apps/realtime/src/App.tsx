@@ -89,6 +89,7 @@ function App() {
   const turnResolutionTimeoutRef = useRef<number | null>(null);
   const pendingTranscriptRef = useRef("");
   const speechStateRef = useRef<SpeechState>("idle");
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const sessionIdRef = useRef(crypto.randomUUID());
 
   const isConnected = connectionState === "connected";
@@ -102,6 +103,13 @@ function App() {
   useEffect(() => {
     speechStateRef.current = speechState;
   }, [speechState]);
+
+  useEffect(() => {
+    chatScrollRef.current?.scrollTo({
+      top: chatScrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [turns, interimTranscript]);
 
   async function connect() {
     setErrorMessage("");
@@ -430,7 +438,7 @@ function App() {
         ) : null}
 
         <section className="grid flex-1 gap-5 lg:grid-cols-[1fr_320px]">
-          <Card className="min-h-[520px]">
+          <Card>
             <CardHeader>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex flex-col gap-1">
@@ -450,38 +458,42 @@ function App() {
                 )}
               </div>
             </CardHeader>
-            <CardContent className="flex h-full flex-col gap-4">
-              <div className="flex min-h-[340px] flex-1 flex-col gap-3 rounded-md border bg-muted/20 p-3">
-                {turns.length === 0 ? (
+            <CardContent className="flex flex-col gap-4">
+              <div
+                ref={chatScrollRef}
+                className="flex h-[360px] flex-none flex-col gap-3 overflow-y-auto rounded-xl border bg-muted/20 p-3"
+              >
+                {turns.length === 0 && !interimTranscript ? (
                   <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
                     Connect, allow the microphone, then speak in Finnish.
                   </div>
                 ) : (
-                  turns.map((turn) => (
-                    <div
-                      key={turn.id}
-                      className={cn(
-                        "flex max-w-[82%] flex-col gap-1 rounded-md border px-3 py-2 text-sm",
-                        turn.speaker === "user"
-                          ? "self-start bg-background"
-                          : "self-end bg-primary text-primary-foreground"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 text-xs opacity-80">
-                        <span>{turn.speaker === "user" ? "User" : "Assistant"}</span>
-                        {turn.mode ? <span>{turn.mode}</span> : null}
+                  <>
+                    {turns.map((turn) => (
+                      <div
+                        key={turn.id}
+                        className={cn(
+                          "flex max-w-[82%] flex-col gap-1 border px-4 py-3 text-sm leading-relaxed shadow-sm",
+                          turn.speaker === "user"
+                            ? "self-start rounded-[1.6rem] rounded-bl-md bg-background"
+                            : "self-end rounded-[1.6rem] rounded-br-md bg-primary text-primary-foreground"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 text-xs opacity-80">
+                          <span>{turn.speaker === "user" ? "User" : "Assistant"}</span>
+                          {turn.mode ? <span>{turn.mode}</span> : null}
+                        </div>
+                        <p>{turn.text}</p>
                       </div>
-                      <p>{turn.text}</p>
-                    </div>
-                  ))
+                    ))}
+                    {interimTranscript ? (
+                      <div className="max-w-[82%] self-start rounded-[1.6rem] rounded-bl-md border border-dashed bg-background/70 px-4 py-3 text-sm text-muted-foreground">
+                        {interimTranscript}
+                      </div>
+                    ) : null}
+                  </>
                 )}
               </div>
-
-              {interimTranscript ? (
-                <div className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
-                  {interimTranscript}
-                </div>
-              ) : null}
 
               <div className="flex flex-col gap-2">
                 <Textarea

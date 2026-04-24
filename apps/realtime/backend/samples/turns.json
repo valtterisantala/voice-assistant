@@ -1,7 +1,23 @@
 [
   {
     "name": "answer_station_search",
+    "session_id": "station-demo",
     "transcript": "Mistä löydän aseman, jossa on autonpesu?"
+  },
+  {
+    "name": "answer_station_followup_yes",
+    "session_id": "station-demo",
+    "transcript": "Joo, näkyy"
+  },
+  {
+    "name": "answer_station_followup_no",
+    "session_id": "station-demo-no",
+    "transcript": "Mistä löydän aseman, jossa on autonpesu?"
+  },
+  {
+    "name": "clarify_station_followup_cannot_find",
+    "session_id": "station-demo-no",
+    "transcript": "En löydä sitä"
   },
   {
     "name": "clarify_general_help",

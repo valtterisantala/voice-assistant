@@ -30,6 +30,10 @@ type Decision = {
   approved_text_fi: string;
   case_id: string;
   confidence: number;
+  step_id?: string;
+  awaits_confirmation?: boolean;
+  allowed_followup_types?: string[];
+  session_id?: string;
 };
 
 type Turn = {
@@ -81,6 +85,7 @@ function App() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const speechRecoveryTimeoutRef = useRef<number | null>(null);
+  const sessionIdRef = useRef(crypto.randomUUID());
 
   const isConnected = connectionState === "connected";
 
@@ -282,7 +287,10 @@ function App() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ transcript }),
+      body: JSON.stringify({
+        transcript,
+        session_id: sessionIdRef.current,
+      }),
     });
 
     if (!response.ok) {
@@ -303,7 +311,13 @@ function App() {
           type: "response.create",
           response: {
             output_modalities: ["audio"],
-            instructions: `Sano suomeksi täsmälleen tämä teksti, äläkä lisää mitään muuta: ${text}`,
+            instructions: [
+              "Puhu rennolla, luontevalla suomella.",
+              "Säilytä alla olevan backend-hyväksytyn tekstin faktat ja tämän vaiheen tarkoitus.",
+              "Voit pehmentää sanamuotoa vähän, mutta älä lisää uutta faktaa, uutta vaihetta tai lisäohjetta.",
+              "Pidä puhe alle neljässä sekunnissa.",
+              `Backend-hyväksytty teksti: ${text}`,
+            ].join(" "),
           },
         })
       );

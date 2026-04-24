@@ -41,7 +41,9 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === "POST" && request.url === "/resolve-turn") {
     const body = await readJsonBody(request);
-    const decision = resolveTurn(body?.transcript);
+    const decision = resolveTurn(body?.transcript, {
+      session_id: body?.session_id,
+    });
 
     sendJson(response, 200, decision);
     return;

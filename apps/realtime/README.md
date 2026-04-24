@@ -34,6 +34,23 @@ OPENAI_REALTIME_PROMPT_VERSION=2
 
 `OPENAI_REALTIME_PROMPT_VARIABLES` can be set to a JSON object if the prompt later uses variables. The backend still adds guard instructions so the model only speaks backend-approved resolver text.
 
+## Behavior policy
+The runtime resolver is driven by a generated behavior policy:
+
+- Source spec: `docs/behavior-spec.md`
+- Strict schema: `apps/realtime/backend/policy-schema.js`
+- Generated artifact: `apps/realtime/backend/generated/behavior-policy.json`
+
+Compile the policy after editing the spec:
+
+```sh
+npm run realtime:policy:compile
+```
+
+The compiler uses the OpenAI Responses API with Structured Outputs. It is an explicit build-time step, not a per-turn runtime call.
+
+At runtime the resolver keeps lightweight in-memory session state keyed by `session_id`. It returns one step at a time, waits for confirmation, and handles short follow-ups like "joo", "ei", "en löydä", and "mitä tarkoitat". Restarting the backend clears this state.
+
 Run the backend resolver and Realtime session proxy from the repository root:
 
 ```sh

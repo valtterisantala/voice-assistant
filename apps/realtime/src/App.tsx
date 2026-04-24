@@ -50,6 +50,11 @@ type RealtimeEvent = {
   type?: string;
   transcript?: string;
   delta?: string;
+  item?: {
+    content?: Array<{
+      transcript?: string;
+    }>;
+  };
   error?: {
     message?: string;
   };
@@ -88,6 +93,10 @@ function App() {
   const speechRecoveryTimeoutRef = useRef<number | null>(null);
   const turnResolutionTimeoutRef = useRef<number | null>(null);
   const pendingTranscriptRef = useRef("");
+  const pendingAssistantTurnIdRef = useRef<string | null>(null);
+  const pendingAssistantTranscriptRef = useRef("");
+  const pendingAssistantApprovedTextRef = useRef("");
+  const pendingAssistantModeRef = useRef<DecisionMode>("answer");
   const speechStateRef = useRef<SpeechState>("idle");
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const sessionIdRef = useRef(crypto.randomUUID());
@@ -198,6 +207,7 @@ function App() {
     clearSpeechRecoveryTimeout();
     clearTurnResolutionTimeout();
     pendingTranscriptRef.current = "";
+    resetPendingAssistant();
     setInterimTranscript("");
     setSpeechState("idle");
     setConnectionState("idle");
@@ -247,12 +257,28 @@ function App() {
       return;
     }
 
+    if (isAssistantTranscriptDelta(realtimeEvent) && realtimeEvent.delta) {
+      updateAssistantSpeechTranscript(realtimeEvent.delta);
+      return;
+    }
+
+    if (isAssistantTranscriptDone(realtimeEvent)) {
+      const transcript = extractAssistantTranscript(realtimeEvent);
+
+      if (transcript) {
+        setAssistantSpeechTranscript(transcript);
+      }
+
+      return;
+    }
+
     if (
       realtimeEvent.type === "response.output_audio.done" ||
       realtimeEvent.type === "response.audio.done" ||
       realtimeEvent.type === "response.done"
     ) {
       clearSpeechRecoveryTimeout();
+      flushPendingAssistantFallback();
       setSpeechState(peerConnectionRef.current ? "listening" : "idle");
       return;
     }
@@ -278,8 +304,7 @@ function App() {
     try {
       const nextDecision = await resolveTurn(cleanTranscript);
       setDecision(nextDecision);
-      appendTurn("assistant", nextDecision.approved_text_fi, nextDecision.mode);
-      speakApprovedText(nextDecision.approved_text_fi);
+      speakApprovedText(nextDecision.approved_text_fi, nextDecision.mode);
     } catch (error) {
       setSpeechState("idle");
       setErrorMessage(formatError(error));
@@ -340,9 +365,11 @@ function App() {
     return (await response.json()) as Decision;
   }
 
-  function speakApprovedText(text: string) {
+  function speakApprovedText(text: string, mode: DecisionMode) {
     setSpeechState("speaking");
     startSpeechRecoveryTimeout();
+    pendingAssistantApprovedTextRef.current = text;
+    pendingAssistantModeRef.current = mode;
     const dataChannel = dataChannelRef.current;
 
     if (dataChannel?.readyState === "open") {
@@ -353,8 +380,8 @@ function App() {
             output_modalities: ["audio"],
             instructions: [
               "Puhu rennolla, luontevalla suomella.",
-              "Säilytä alla olevan backend-hyväksytyn tekstin faktat ja tämän vaiheen tarkoitus.",
-              "Voit pehmentää sanamuotoa vähän, mutta älä lisää uutta faktaa, uutta vaihetta tai lisäohjetta.",
+              "Sano alla oleva backend-hyväksytty teksti mahdollisimman täsmällisesti.",
+              "Älä lisää uutta faktaa, uutta vaihetta tai lisäohjetta.",
               "Pidä puhe alle neljässä sekunnissa.",
               `Backend-hyväksytty teksti: ${text}`,
             ].join(" "),
@@ -364,6 +391,7 @@ function App() {
       return;
     }
 
+    resetPendingAssistant();
     setSpeechState("idle");
     setErrorMessage("Realtime data channel is not open. Connect before sending a turn.");
   }
@@ -371,6 +399,7 @@ function App() {
   function startSpeechRecoveryTimeout() {
     clearSpeechRecoveryTimeout();
     speechRecoveryTimeoutRef.current = window.setTimeout(() => {
+      flushPendingAssistantFallback();
       setSpeechState("idle");
     }, 10000);
   }
@@ -396,15 +425,75 @@ function App() {
   }
 
   function appendTurn(speaker: Turn["speaker"], text: string, mode?: DecisionMode) {
+    const id = crypto.randomUUID();
+
     setTurns((current) => [
       ...current,
       {
-        id: crypto.randomUUID(),
+        id,
         speaker,
         text,
         mode,
       },
     ]);
+
+    return id;
+  }
+
+  function updateTurn(turnId: string, text: string) {
+    setTurns((current) =>
+      current.map((turn) => (turn.id === turnId ? { ...turn, text } : turn))
+    );
+  }
+
+  function updateAssistantSpeechTranscript(delta: string) {
+    pendingAssistantTranscriptRef.current += delta;
+    const turnId = ensurePendingAssistantTurn();
+    updateTurn(turnId, pendingAssistantTranscriptRef.current);
+  }
+
+  function setAssistantSpeechTranscript(transcript: string) {
+    pendingAssistantTranscriptRef.current = transcript.trim();
+
+    if (!pendingAssistantTranscriptRef.current) {
+      return;
+    }
+
+    const turnId = ensurePendingAssistantTurn();
+    updateTurn(turnId, pendingAssistantTranscriptRef.current);
+  }
+
+  function ensurePendingAssistantTurn() {
+    if (!pendingAssistantTurnIdRef.current) {
+      pendingAssistantTurnIdRef.current = appendTurn(
+        "assistant",
+        "",
+        pendingAssistantModeRef.current
+      );
+    }
+
+    return pendingAssistantTurnIdRef.current;
+  }
+
+  function flushPendingAssistantFallback() {
+    if (!pendingAssistantApprovedTextRef.current) {
+      resetPendingAssistant();
+      return;
+    }
+
+    if (!pendingAssistantTranscriptRef.current.trim()) {
+      const turnId = ensurePendingAssistantTurn();
+      updateTurn(turnId, pendingAssistantApprovedTextRef.current);
+    }
+
+    resetPendingAssistant();
+  }
+
+  function resetPendingAssistant() {
+    pendingAssistantTurnIdRef.current = null;
+    pendingAssistantTranscriptRef.current = "";
+    pendingAssistantApprovedTextRef.current = "";
+    pendingAssistantModeRef.current = "answer";
   }
 
   return (
@@ -552,7 +641,7 @@ function App() {
                 </div>
                 <div className="flex items-center gap-2">
                   <BadgeCheckIcon className="text-muted-foreground" />
-                  <span>Assistant text comes only from the resolver.</span>
+                  <span>Assistant audio is resolver-approved.</span>
                 </div>
               </CardContent>
             </Card>
@@ -585,6 +674,33 @@ function DebugRow({ label, value }: { label: string; value: string }) {
       <span className="break-words text-sm font-medium">{value}</span>
     </div>
   );
+}
+
+function isAssistantTranscriptDelta(realtimeEvent: RealtimeEvent) {
+  return Boolean(
+    realtimeEvent.type?.includes("response.") &&
+      realtimeEvent.type.includes("audio") &&
+      realtimeEvent.type.includes("transcript") &&
+      realtimeEvent.type.endsWith(".delta")
+  );
+}
+
+function isAssistantTranscriptDone(realtimeEvent: RealtimeEvent) {
+  return Boolean(
+    realtimeEvent.type?.includes("response.") &&
+      realtimeEvent.type.includes("audio") &&
+      realtimeEvent.type.includes("transcript") &&
+      realtimeEvent.type.endsWith(".done")
+  );
+}
+
+function extractAssistantTranscript(realtimeEvent: RealtimeEvent) {
+  const contentTranscript = realtimeEvent.item?.content
+    ?.map((content) => content.transcript)
+    .filter(Boolean)
+    .join(" ");
+
+  return realtimeEvent.transcript ?? contentTranscript ?? "";
 }
 
 function safeJsonParse(raw: string): RealtimeEvent | null {

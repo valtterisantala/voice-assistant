@@ -3,6 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
+    "realtime:dev": "npm run dev --prefix apps/realtime",
+    "realtime:build": "npm run build --prefix apps/realtime",
     "realtime:backend": "node apps/realtime/backend/server.js",
     "realtime:resolver:samples": "node apps/realtime/backend/sample-runner.js"
   }

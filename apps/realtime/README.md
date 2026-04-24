@@ -9,6 +9,45 @@ Purpose: test the feel of a browser-based speech-to-speech customer service assi
 - assistant speaks back
 - transcript and status visible
 
+## Browser Realtime POC
+Install frontend dependencies once:
+
+```sh
+cd apps/realtime
+npm install
+```
+
+Create local environment values:
+
+```sh
+cp .env.example .env
+```
+
+Set `OPENAI_API_KEY` in `apps/realtime/.env`, or export it in the shell that runs the backend.
+
+Run the backend resolver and Realtime session proxy from the repository root:
+
+```sh
+npm run realtime:backend
+```
+
+Run the browser app in a second terminal:
+
+```sh
+npm run realtime:dev
+```
+
+Open the Vite URL in a desktop browser. Chrome is recommended because the POC uses browser speech recognition for local transcript capture.
+
+Flow:
+1. Click Connect.
+2. Speak a short Finnish app-support request.
+3. The browser transcript is sent to `/resolve-turn`.
+4. The approved Finnish resolver text is sent to Realtime for speech.
+5. The debug panel shows `mode`, `case_id`, and `confidence`.
+
+The text input can be used for local testing when browser speech recognition is unavailable.
+
 ## Backend turn resolver
 This milestone includes a small local backend stub for the Realtime hard-logic layer.
 

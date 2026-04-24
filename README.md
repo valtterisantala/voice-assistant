@@ -11,10 +11,23 @@ The first milestone is a feeling probe only: no knowledge base, no case cards, n
 
 The Realtime POC has a small local backend resolver stub under `apps/realtime/backend`.
 
+Install the Realtime app dependencies:
+
+```sh
+cd apps/realtime
+npm install
+```
+
 Run the endpoint:
 
 ```sh
 npm run realtime:backend
+```
+
+Run the browser client:
+
+```sh
+npm run realtime:dev
 ```
 
 Run bundled sample turns:

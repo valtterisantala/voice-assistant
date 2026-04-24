@@ -45,6 +45,16 @@ Start with 5 Finnish reply templates in a generic gas station mobile app context
 
 These are placeholders only. They will later be replaced by case cards and then by a broader KB.
 
+## Frontend stack rule
+Use **Vite + React + TypeScript + shadcn/ui** for the browser UI.
+
+The preferred shadcn initialization command is:
+
+`npx shadcn@latest init --preset b1YmqvjQ8 --template vite`
+
+Treat that preset as the starting point for the UI shell whenever bootstrapping the frontend.
+Do not replace it with a different starter unless there is a concrete technical reason.
+
 ## Product rules
 - Build for desktop browser first.
 - The POC must be presentable over Microsoft Teams screen share.

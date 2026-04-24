@@ -91,5 +91,12 @@ The Realtime POC must:
 - run instructions
 - short comparison notes after manual testing
 
-## Expected next step after v0
-Once the architecture works, replace the hard-coded demo layer with a semi-simulated case pack based on screenshots and validated client pain points.
+## Deferred roadmap after v0
+Once the architecture works, the planned next layers are:
+- semi-simulated case pack based on screenshots and validated client pain points
+- deeper Teams-native participation via a Teams bot integration
+- backend-controlled handoff to a human specialist when a defined rule or endpoint in the discussion is reached
+- backend-controlled ticket creation to Jira or to a Jira-like agentic ticketing system as a proof-of-concept for escalation and referral workflows
+
+## Important future rule
+If and when handoff or ticket creation is added, the trigger must come from backend-approved logic, not from Realtime improvising an action.

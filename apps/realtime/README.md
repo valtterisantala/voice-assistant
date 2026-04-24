@@ -39,10 +39,10 @@ Optional Realtime voice activity settings:
 ```sh
 OPENAI_REALTIME_VAD_THRESHOLD=0.5
 OPENAI_REALTIME_VAD_PREFIX_PADDING_MS=500
-OPENAI_REALTIME_VAD_SILENCE_DURATION_MS=1200
+OPENAI_REALTIME_VAD_SILENCE_DURATION_MS=900
 ```
 
-The browser also waits briefly after a finalized transcript before sending it to the resolver. If the user starts speaking again during that grace window, the app keeps listening and joins the transcript pieces into one user turn.
+The browser keeps the mic live after Connect and waits very briefly after a finalized transcript before sending it to the resolver. If the user starts speaking again during that grace window, the app keeps listening and joins the transcript pieces into one user turn.
 
 ## Behavior policy
 The runtime resolver is driven by a generated behavior policy:
@@ -78,7 +78,7 @@ Open the Vite URL in normal desktop Chrome. The Codex in-app browser is useful f
 Flow:
 1. Click Connect.
 2. Allow microphone access in Chrome.
-3. Click Listen and speak a short Finnish app-support request.
+3. Speak a short Finnish app-support request.
 4. Mic audio is streamed to OpenAI Realtime over WebRTC.
 5. The finalized Realtime transcript is sent to `/resolve-turn`.
 6. The approved Finnish resolver text is sent back to Realtime.

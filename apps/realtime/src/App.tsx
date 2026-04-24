@@ -56,7 +56,7 @@ type RealtimeEvent = {
 };
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://127.0.0.1:8787";
-const USER_TURN_GRACE_MS = 900;
+const USER_TURN_GRACE_MS = 250;
 
 const statusCopy: Record<ConnectionState, string> = {
   idle: "Idle",
@@ -88,6 +88,7 @@ function App() {
   const speechRecoveryTimeoutRef = useRef<number | null>(null);
   const turnResolutionTimeoutRef = useRef<number | null>(null);
   const pendingTranscriptRef = useRef("");
+  const speechStateRef = useRef<SpeechState>("idle");
   const sessionIdRef = useRef(crypto.randomUUID());
 
   const isConnected = connectionState === "connected";
@@ -97,6 +98,10 @@ function App() {
       disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    speechStateRef.current = speechState;
+  }, [speechState]);
 
   async function connect() {
     setErrorMessage("");
@@ -114,7 +119,7 @@ function App() {
         },
       });
       micStreamRef.current = micStream;
-      setMicEnabled(false);
+      setMicEnabled(true);
 
       const audioElement = document.createElement("audio");
       audioElement.autoplay = true;
@@ -162,7 +167,7 @@ function App() {
       await waitForDataChannelOpen(dataChannel);
 
       setConnectionState("connected");
-      setSpeechState("idle");
+      setSpeechState("listening");
     } catch (error) {
       disconnect();
       setConnectionState("error");
@@ -190,27 +195,6 @@ function App() {
     setConnectionState("idle");
   }
 
-  function startListening() {
-    if (!isConnected) {
-      return;
-    }
-
-    setErrorMessage("");
-    setInterimTranscript("");
-    pendingTranscriptRef.current = "";
-    clearTurnResolutionTimeout();
-    setMicEnabled(true);
-    setSpeechState("listening");
-  }
-
-  function stopListening() {
-    setMicEnabled(false);
-    pendingTranscriptRef.current = "";
-    clearTurnResolutionTimeout();
-    setInterimTranscript("");
-    setSpeechState("idle");
-  }
-
   async function handleRealtimeEvent(rawEvent: string) {
     const realtimeEvent = safeJsonParse(rawEvent);
 
@@ -219,6 +203,10 @@ function App() {
     }
 
     if (realtimeEvent.type === "input_audio_buffer.speech_started") {
+      if (speechStateRef.current === "resolving" || speechStateRef.current === "speaking") {
+        return;
+      }
+
       if (pendingTranscriptRef.current) {
         clearTurnResolutionTimeout();
       }
@@ -231,6 +219,10 @@ function App() {
       realtimeEvent.type === "conversation.item.input_audio_transcription.delta" &&
       realtimeEvent.delta
     ) {
+      if (speechStateRef.current === "resolving" || speechStateRef.current === "speaking") {
+        return;
+      }
+
       setInterimTranscript((current) => `${current}${realtimeEvent.delta}`);
       return;
     }
@@ -239,6 +231,10 @@ function App() {
       realtimeEvent.type === "conversation.item.input_audio_transcription.completed" &&
       realtimeEvent.transcript
     ) {
+      if (speechStateRef.current === "resolving" || speechStateRef.current === "speaking") {
+        return;
+      }
+
       queueFinalTranscript(realtimeEvent.transcript);
       return;
     }
@@ -249,7 +245,7 @@ function App() {
       realtimeEvent.type === "response.done"
     ) {
       clearSpeechRecoveryTimeout();
-      setSpeechState("idle");
+      setSpeechState(peerConnectionRef.current ? "listening" : "idle");
       return;
     }
 
@@ -290,7 +286,6 @@ function App() {
     }
 
     setDraft("");
-    stopListening();
     await handleFinalTranscript(transcript);
   }
 
@@ -311,7 +306,6 @@ function App() {
       const finalTranscript = pendingTranscriptRef.current.trim();
       pendingTranscriptRef.current = "";
       clearTurnResolutionTimeout();
-      setMicEnabled(false);
 
       if (finalTranscript) {
         void handleFinalTranscript(finalTranscript);
@@ -422,21 +416,6 @@ function App() {
               <PhoneCallIcon data-icon="inline-start" />
               Connect
             </Button>
-            {speechState === "listening" ? (
-              <Button variant="outline" onClick={stopListening} disabled={!isConnected}>
-                <MicOffIcon data-icon="inline-start" />
-                Stop
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                onClick={() => startListening()}
-                disabled={!isConnected || speechState === "resolving" || speechState === "speaking"}
-              >
-                <MicIcon data-icon="inline-start" />
-                Listen
-              </Button>
-            )}
             <Button variant="outline" onClick={disconnect} disabled={!isConnected}>
               <PhoneOffIcon data-icon="inline-start" />
               Disconnect
@@ -475,7 +454,7 @@ function App() {
               <div className="flex min-h-[340px] flex-1 flex-col gap-3 rounded-md border bg-muted/20 p-3">
                 {turns.length === 0 ? (
                   <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                    Connect, click Listen, then speak in Finnish.
+                    Connect, allow the microphone, then speak in Finnish.
                   </div>
                 ) : (
                   turns.map((turn) => (

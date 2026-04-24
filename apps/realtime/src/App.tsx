@@ -134,7 +134,7 @@ function App() {
       dataChannel.addEventListener("message", (event) => {
         const realtimeEvent = safeJsonParse(event.data);
         if (realtimeEvent?.type === "response.audio.done") {
-          setSpeechState(shouldListenRef.current ? "listening" : "idle");
+          setSpeechState("idle");
         }
       });
 
@@ -165,7 +165,7 @@ function App() {
       await waitForDataChannelOpen(dataChannel);
 
       setConnectionState("connected");
-      startListening();
+      startListening(true);
     } catch (error) {
       disconnect();
       setConnectionState("error");
@@ -189,7 +189,11 @@ function App() {
     setConnectionState("idle");
   }
 
-  function startListening() {
+  function startListening(force = false) {
+    if (!force && !isConnected) {
+      return;
+    }
+
     const SpeechRecognition =
       window.SpeechRecognition ?? window.webkitSpeechRecognition;
 
@@ -201,10 +205,11 @@ function App() {
 
     setSupportsSpeechRecognition(true);
     shouldListenRef.current = true;
+    recognitionRef.current?.abort();
 
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = "fi-FI";
 
@@ -226,6 +231,7 @@ function App() {
       setInterimTranscript(interim);
 
       if (finalTranscript) {
+        shouldListenRef.current = false;
         void handleTranscript(finalTranscript);
       }
     };
@@ -236,12 +242,8 @@ function App() {
 
     recognition.onend = () => {
       if (shouldListenRef.current) {
-        try {
-          recognition.start();
-          setSpeechState("listening");
-        } catch {
-          setSpeechState("idle");
-        }
+        setSpeechState("idle");
+        shouldListenRef.current = false;
       }
     };
 
@@ -251,6 +253,13 @@ function App() {
     } catch {
       setSpeechState("idle");
     }
+  }
+
+  function stopListening() {
+    shouldListenRef.current = false;
+    recognitionRef.current?.stop();
+    setInterimTranscript("");
+    setSpeechState("idle");
   }
 
   async function handleTranscript(transcript: string) {
@@ -323,7 +332,7 @@ function App() {
     utterance.lang = "fi-FI";
     utterance.rate = 0.96;
     utterance.onend = () => {
-      setSpeechState(shouldListenRef.current ? "listening" : "idle");
+      setSpeechState("idle");
     };
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
@@ -358,6 +367,21 @@ function App() {
               <PhoneCallIcon data-icon="inline-start" />
               Connect
             </Button>
+            {speechState === "listening" ? (
+              <Button variant="outline" onClick={stopListening} disabled={!isConnected}>
+                <MicOffIcon data-icon="inline-start" />
+                Stop
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => startListening()}
+                disabled={!isConnected || speechState === "resolving" || speechState === "speaking"}
+              >
+                <MicIcon data-icon="inline-start" />
+                Listen
+              </Button>
+            )}
             <Button variant="outline" onClick={disconnect} disabled={!isConnected}>
               <PhoneOffIcon data-icon="inline-start" />
               Disconnect

@@ -228,6 +228,7 @@ function App() {
 
     if (
       realtimeEvent.type === "response.output_audio.done" ||
+      realtimeEvent.type === "response.audio.done" ||
       realtimeEvent.type === "response.done"
     ) {
       clearSpeechRecoveryTimeout();
@@ -301,7 +302,7 @@ function App() {
         JSON.stringify({
           type: "response.create",
           response: {
-            modalities: ["audio", "text"],
+            output_modalities: ["audio"],
             instructions: `Sano suomeksi täsmälleen tämä teksti, äläkä lisää mitään muuta: ${text}`,
           },
         })

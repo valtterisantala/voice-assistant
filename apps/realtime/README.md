@@ -34,6 +34,16 @@ OPENAI_REALTIME_PROMPT_VERSION=2
 
 `OPENAI_REALTIME_PROMPT_VARIABLES` can be set to a JSON object if the prompt later uses variables. The backend still adds guard instructions so the model only speaks backend-approved resolver text.
 
+Optional Realtime voice activity settings:
+
+```sh
+OPENAI_REALTIME_VAD_THRESHOLD=0.5
+OPENAI_REALTIME_VAD_PREFIX_PADDING_MS=500
+OPENAI_REALTIME_VAD_SILENCE_DURATION_MS=1200
+```
+
+The browser also waits briefly after a finalized transcript before sending it to the resolver. If the user starts speaking again during that grace window, the app keeps listening and joins the transcript pieces into one user turn.
+
 ## Behavior policy
 The runtime resolver is driven by a generated behavior policy:
 

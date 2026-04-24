@@ -56,6 +56,7 @@ type RealtimeEvent = {
 };
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://127.0.0.1:8787";
+const USER_TURN_GRACE_MS = 900;
 
 const statusCopy: Record<ConnectionState, string> = {
   idle: "Idle",
@@ -85,6 +86,8 @@ function App() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const speechRecoveryTimeoutRef = useRef<number | null>(null);
+  const turnResolutionTimeoutRef = useRef<number | null>(null);
+  const pendingTranscriptRef = useRef("");
   const sessionIdRef = useRef(crypto.randomUUID());
 
   const isConnected = connectionState === "connected";
@@ -180,6 +183,8 @@ function App() {
     audioRef.current?.remove();
     audioRef.current = null;
     clearSpeechRecoveryTimeout();
+    clearTurnResolutionTimeout();
+    pendingTranscriptRef.current = "";
     setInterimTranscript("");
     setSpeechState("idle");
     setConnectionState("idle");
@@ -192,12 +197,16 @@ function App() {
 
     setErrorMessage("");
     setInterimTranscript("");
+    pendingTranscriptRef.current = "";
+    clearTurnResolutionTimeout();
     setMicEnabled(true);
     setSpeechState("listening");
   }
 
   function stopListening() {
     setMicEnabled(false);
+    pendingTranscriptRef.current = "";
+    clearTurnResolutionTimeout();
     setInterimTranscript("");
     setSpeechState("idle");
   }
@@ -210,6 +219,10 @@ function App() {
     }
 
     if (realtimeEvent.type === "input_audio_buffer.speech_started") {
+      if (pendingTranscriptRef.current) {
+        clearTurnResolutionTimeout();
+      }
+
       setSpeechState("listening");
       return;
     }
@@ -226,8 +239,7 @@ function App() {
       realtimeEvent.type === "conversation.item.input_audio_transcription.completed" &&
       realtimeEvent.transcript
     ) {
-      stopListening();
-      await handleFinalTranscript(realtimeEvent.transcript);
+      queueFinalTranscript(realtimeEvent.transcript);
       return;
     }
 
@@ -278,7 +290,33 @@ function App() {
     }
 
     setDraft("");
+    stopListening();
     await handleFinalTranscript(transcript);
+  }
+
+  function queueFinalTranscript(transcript: string) {
+    const cleanTranscript = transcript.trim();
+
+    if (!cleanTranscript) {
+      return;
+    }
+
+    pendingTranscriptRef.current = [pendingTranscriptRef.current, cleanTranscript]
+      .filter(Boolean)
+      .join(" ");
+    setInterimTranscript(pendingTranscriptRef.current);
+    clearTurnResolutionTimeout();
+
+    turnResolutionTimeoutRef.current = window.setTimeout(() => {
+      const finalTranscript = pendingTranscriptRef.current.trim();
+      pendingTranscriptRef.current = "";
+      clearTurnResolutionTimeout();
+      setMicEnabled(false);
+
+      if (finalTranscript) {
+        void handleFinalTranscript(finalTranscript);
+      }
+    }, USER_TURN_GRACE_MS);
   }
 
   async function resolveTurn(transcript: string) {
@@ -339,6 +377,13 @@ function App() {
     if (speechRecoveryTimeoutRef.current) {
       window.clearTimeout(speechRecoveryTimeoutRef.current);
       speechRecoveryTimeoutRef.current = null;
+    }
+  }
+
+  function clearTurnResolutionTimeout() {
+    if (turnResolutionTimeoutRef.current) {
+      window.clearTimeout(turnResolutionTimeoutRef.current);
+      turnResolutionTimeoutRef.current = null;
     }
   }
 

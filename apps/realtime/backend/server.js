@@ -13,6 +13,13 @@ const REALTIME_TRANSCRIPTION_MODEL =
   process.env.OPENAI_REALTIME_TRANSCRIPTION_MODEL ?? "gpt-4o-transcribe";
 const REALTIME_TRANSCRIPTION_LANGUAGE =
   process.env.OPENAI_REALTIME_TRANSCRIPTION_LANGUAGE ?? "fi";
+const REALTIME_VAD_THRESHOLD = Number(process.env.OPENAI_REALTIME_VAD_THRESHOLD ?? 0.5);
+const REALTIME_VAD_PREFIX_PADDING_MS = Number(
+  process.env.OPENAI_REALTIME_VAD_PREFIX_PADDING_MS ?? 500
+);
+const REALTIME_VAD_SILENCE_DURATION_MS = Number(
+  process.env.OPENAI_REALTIME_VAD_SILENCE_DURATION_MS ?? 1200
+);
 const DEFAULT_REALTIME_PROMPT_ID = "pmpt_69eafbd8d1d881938d6169b79a9cb4a90cee44e456b6540a";
 const DEFAULT_REALTIME_PROMPT_VERSION = "2";
 const REALTIME_INSTRUCTIONS = [
@@ -158,9 +165,9 @@ async function createRealtimeSession(sdp) {
         },
         turn_detection: {
           type: "server_vad",
-          threshold: 0.5,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 700,
+          threshold: REALTIME_VAD_THRESHOLD,
+          prefix_padding_ms: REALTIME_VAD_PREFIX_PADDING_MS,
+          silence_duration_ms: REALTIME_VAD_SILENCE_DURATION_MS,
           create_response: false,
           interrupt_response: false,
         },

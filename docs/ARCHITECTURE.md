@@ -63,3 +63,14 @@ Both apps should:
 - no analytics backend
 - no retrieval or vector database
 - no customer-specific logic
+- no human handoff flow yet
+- no ticket creation flow yet
+
+## Deferred roadmap after milestone 1
+Later layers may add:
+- deeper Teams-native participation through a Teams bot integration
+- backend-controlled handoff to a human specialist when a defined discussion rule or endpoint is reached
+- backend-controlled creation of Jira tickets, or tickets in a Jira-like agentic ticketing system, as part of escalation workflows
+
+## Future control rule
+Handoff and ticket creation must be backend-authorized actions. Realtime should never decide these actions on its own.

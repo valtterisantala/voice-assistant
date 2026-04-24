@@ -2,9 +2,39 @@ const behaviorPolicy = require("./generated/behavior-policy.json");
 
 const sessions = new Map();
 const DEFAULT_SESSION_ID = "local-demo";
+const caseLabelsFi = {
+  general_app_help: "sovelluksen perusasioista",
+  station_or_service_find: "asemista ja tankkauksesta",
+  payment_or_card_issue: "mobiilimaksusta",
+  receipt_or_transaction_issue: "kuiteista ja tapahtumista",
+  technical_update_or_login_issue: "kirjautumisesta tai teknisestä viasta",
+};
 const fallbackCaseKeywords = {
-  station_or_service_find: ["asema", "aseman", "kartta", "palvelu", "pesu", "lataus", "ravintola"],
-  payment_or_card_issue: ["maksu", "maksaa", "kortti", "pankki", "apple pay", "google pay"],
+  station_or_service_find: [
+    "asema",
+    "aseman",
+    "kartta",
+    "palvelu",
+    "pesu",
+    "lataus",
+    "ravintola",
+    "tankkaus",
+    "tankka",
+    "tankkauk",
+    "tankata",
+    "mobiilitankkaus",
+    "mobiilitankkauk",
+    "polttoaine",
+  ],
+  payment_or_card_issue: [
+    "maksu",
+    "maksaa",
+    "mobiilimaksu",
+    "kortti",
+    "pankki",
+    "apple pay",
+    "google pay",
+  ],
   receipt_or_transaction_issue: ["kuitti", "kuitit", "tapahtuma", "ostos", "historia", "tankkaus"],
   technical_update_or_login_issue: [
     "kirjautu",
@@ -54,7 +84,7 @@ function resolveTurn(transcript, options = {}) {
     containsAny(cleanTranscript, behaviorPolicy.escalation_keywords) ||
     containsAny(cleanTranscript, escalationKeywordFallbacks)
   ) {
-    resetSession(session);
+    resetActiveCase(session);
     return buildDecision({
       mode: "escalate",
       approved_text_fi:
@@ -68,13 +98,39 @@ function resolveTurn(transcript, options = {}) {
   }
 
   if (session.awaiting_confirmation && session.case_id) {
+    const explicitCase = findCase(cleanTranscript);
+    const followupType = classifyFollowup(cleanTranscript);
+
+    if (
+      explicitCase &&
+      explicitCase.case_id !== "general_app_help" &&
+      explicitCase.case_id !== session.case_id &&
+      followupType === "unknown"
+    ) {
+      return startCase(session, explicitCase, sessionId);
+    }
+
     return resolveFollowup(cleanTranscript, session, sessionId);
   }
 
   const matchedCase = findCase(cleanTranscript);
 
   if (!matchedCase || matchedCase.case_id === "general_app_help") {
-    resetSession(session);
+    const recentCaseId = lastCaseId(session);
+    resetActiveCase(session);
+
+    if (recentCaseId && recentCaseId !== "general_app_help") {
+      return buildDecision({
+        mode: "clarify",
+        approved_text_fi: `Puhuttiin äsken ${caseLabelsFi[recentCaseId]}. Jatketaanko siitä, vai vaihdetaanko aihetta?`,
+        case_id: recentCaseId,
+        confidence: 0.58,
+        step_id: "confirm_recent_topic",
+        awaits_confirmation: false,
+        session_id: sessionId,
+      });
+    }
+
     return buildDecision({
       mode: "clarify",
       approved_text_fi: firstStep("general_app_help").approved_text_fi,
@@ -99,7 +155,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
     const nextStep = currentCase.steps[nextStepIndex];
 
     if (!nextStep) {
-      resetSession(session);
+      resetActiveCase(session);
       return buildDecision({
         mode: "answer",
         approved_text_fi: "Hyvä, homma kunnossa. Tarvitsetko vielä muuta apua?",
@@ -147,7 +203,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
     session.retry_count += 1;
 
     if (session.retry_count >= 2) {
-      resetSession(session);
+      resetActiveCase(session);
       return buildDecision({
         mode: "escalate",
         approved_text_fi:
@@ -190,6 +246,7 @@ function startCase(session, matchedCase, sessionId) {
   session.step_id = step.step_id;
   session.awaiting_confirmation = true;
   session.retry_count = 0;
+  rememberCase(session, matchedCase.case_id);
 
   return stepDecision(matchedCase, step, sessionId, 0.84);
 }
@@ -231,12 +288,24 @@ function findCase(cleanTranscript) {
   const specificCases = behaviorPolicy.cases.filter(
     (caseConfig) => caseConfig.case_id !== "general_app_help"
   );
+  const scoredCases = specificCases
+    .map((caseConfig) => {
+      const policyScore = matchScore(cleanTranscript, caseConfig.keywords);
+      const fallbackScore = matchScore(
+        cleanTranscript,
+        fallbackCaseKeywords[caseConfig.case_id] ?? []
+      );
+
+      return {
+        caseConfig,
+        score: policyScore * 3 + fallbackScore,
+      };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score);
 
   return (
-    specificCases.find((caseConfig) => containsAny(cleanTranscript, caseConfig.keywords)) ??
-    specificCases.find((caseConfig) =>
-      containsAny(cleanTranscript, fallbackCaseKeywords[caseConfig.case_id] ?? [])
-    ) ??
+    scoredCases[0]?.caseConfig ??
     behaviorPolicy.cases.find((caseConfig) => containsAny(cleanTranscript, caseConfig.keywords))
   );
 }
@@ -256,7 +325,7 @@ function classifyFollowup(cleanTranscript) {
     }
   }
 
-  return "unclear";
+  return "unknown";
 }
 
 function getSession(sessionId) {
@@ -267,13 +336,14 @@ function getSession(sessionId) {
       step_id: null,
       awaiting_confirmation: false,
       retry_count: 0,
+      case_history: [],
     });
   }
 
   return sessions.get(sessionId);
 }
 
-function resetSession(session) {
+function resetActiveCase(session) {
   session.case_id = null;
   session.step_index = 0;
   session.step_id = null;
@@ -281,8 +351,26 @@ function resetSession(session) {
   session.retry_count = 0;
 }
 
+function rememberCase(session, caseId) {
+  session.case_history = session.case_history ?? [];
+  session.case_history = [
+    caseId,
+    ...session.case_history.filter((candidate) => candidate !== caseId),
+  ].slice(0, 3);
+}
+
+function lastCaseId(session) {
+  return session.case_id ?? session.case_history?.[0] ?? null;
+}
+
 function containsAny(cleanTranscript, keywords) {
   return keywords.some((keyword) => cleanTranscript.includes(normalizeTranscript(keyword)));
+}
+
+function matchScore(cleanTranscript, keywords) {
+  return keywords.reduce((score, keyword) => {
+    return cleanTranscript.includes(normalizeTranscript(keyword)) ? score + 1 : score;
+  }, 0);
 }
 
 function normalizeTranscript(transcript) {

@@ -34,5 +34,19 @@
   {
     "name": "answer_login",
     "transcript": "Sovellus ei aukea ja kirjautuminen epäonnistuu."
+  },
+  {
+    "name": "answer_refueling_topic",
+    "transcript": "Tarvitsen apua mobiilitankkauksessa."
+  },
+  {
+    "name": "answer_context_payment_start",
+    "session_id": "memory-demo",
+    "transcript": "Mobiilimaksu ei toimi."
+  },
+  {
+    "name": "clarify_context_memory_after_vague_followup",
+    "session_id": "memory-demo",
+    "transcript": "Mitä me oltiin tekemässä?"
   }
 ]

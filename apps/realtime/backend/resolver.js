@@ -2,27 +2,27 @@ const CASES = {
   general_app_help: {
     case_id: "general_app_help",
     approved_text_fi:
-      "Voin auttaa sovelluksen perusasioissa. Kerro lyhyesti, liittyykö asia asemahakuun, maksamiseen, kuittiin vai kirjautumiseen.",
+      "Joo, autan. Liittyykö tämä maksuun, kuittiin, kirjautumiseen vai aseman etsimiseen?",
   },
   station_or_service_find: {
     case_id: "station_or_service_find",
     approved_text_fi:
-      "Avaa sovelluksen asemahaku ja valitse tarvitsemasi palvelu suodattimista. Sen jälkeen näet sopivat asemat kartalla.",
+      "Avaa ensin sovelluksesta asemahaku. Näitkö karttanäkymän auki?",
   },
   payment_or_card_issue: {
     case_id: "payment_or_card_issue",
     approved_text_fi:
-      "Tarkista ensin sovelluksesta, että maksukortti on voimassa ja valittuna. Jos maksu on veloitettu väärin, ohjaan asian asiakaspalvelijalle.",
+      "Avaa maksutavat ja katso, onko oikea kortti valittuna. Löytyikö se sieltä?",
   },
   receipt_or_transaction_issue: {
     case_id: "receipt_or_transaction_issue",
     approved_text_fi:
-      "Kuitit ja tapahtumat löytyvät yleensä sovelluksen tapahtumahistoriasta. Tarkista oikea aikaväli ja avaa kyseinen ostotapahtuma.",
+      "Avaa ensin tapahtumahistoria sovelluksesta. Näetkö ostoksen siellä?",
   },
   technical_update_or_login_issue: {
     case_id: "technical_update_or_login_issue",
     approved_text_fi:
-      "Päivitä sovellus uusimpaan versioon ja yritä kirjautua uudelleen. Jos se ei auta, käynnistä puhelin ja kokeile vielä kerran.",
+      "Kokeile ensin kirjautua ulos ja takaisin sisään. Pääsitkö takaisin sovellukseen?",
   },
 };
 
@@ -33,7 +33,7 @@ const ROUTES = [
     confidence: 0.9,
     keywords: ["tuplaveloitus", "kahdesti", "veloitettiin", "rahat", "hyvitys"],
     approved_text_fi:
-      "Tämä kannattaa ohjata asiakaspalvelijalle. En tee muutoksia tässä demossa, mutta kirjaan asian jatkokäsittelyyn.",
+      "Tuo kuulostaa veloitusasialta. Ohjaan tämän asiakaspalvelijalle jatkokäsittelyyn.",
   },
   {
     case_id: "station_or_service_find",
@@ -70,7 +70,7 @@ function resolveTurn(transcript) {
       case_id: "general_app_help",
       confidence: 0.35,
       approved_text_fi:
-        "En saanut vielä selvää asiasta. Kerro lyhyesti, tarvitsetko apua asemien, maksamisen, kuittien vai kirjautumisen kanssa.",
+        "En saanut vielä kiinni asiasta. Onko kyse maksusta, kuitista, kirjautumisesta vai asemasta?",
     });
   }
 

@@ -447,12 +447,20 @@ function App() {
   }
 
   function updateAssistantSpeechTranscript(delta: string) {
+    if (!pendingAssistantApprovedTextRef.current) {
+      return;
+    }
+
     pendingAssistantTranscriptRef.current += delta;
     const turnId = ensurePendingAssistantTurn();
     updateTurn(turnId, pendingAssistantTranscriptRef.current);
   }
 
   function setAssistantSpeechTranscript(transcript: string) {
+    if (!pendingAssistantApprovedTextRef.current) {
+      return;
+    }
+
     pendingAssistantTranscriptRef.current = transcript.trim();
 
     if (!pendingAssistantTranscriptRef.current) {
@@ -497,9 +505,9 @@ function App() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-5 py-5">
-        <header className="flex flex-col gap-4 border-b pb-5 md:flex-row md:items-center md:justify-between">
+    <main className="h-screen overflow-hidden bg-background">
+      <div className="mx-auto flex h-screen w-full max-w-6xl flex-col gap-5 px-5 py-5">
+        <header className="flex flex-none flex-col gap-4 border-b pb-5 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium text-muted-foreground">Realtime POC</p>
             <h1 className="text-2xl font-semibold tracking-normal">
@@ -526,8 +534,8 @@ function App() {
           </div>
         ) : null}
 
-        <section className="grid flex-1 gap-5 lg:grid-cols-[1fr_320px]">
-          <Card>
+        <section className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <Card className="flex min-h-0 flex-col">
             <CardHeader>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex flex-col gap-1">
@@ -547,10 +555,10 @@ function App() {
                 )}
               </div>
             </CardHeader>
-            <CardContent className="flex flex-col gap-4">
+            <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
               <div
                 ref={chatScrollRef}
-                className="flex h-[360px] flex-none flex-col gap-3 overflow-y-auto rounded-xl border bg-muted/20 p-3"
+                className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-xl border bg-muted/20 p-3"
               >
                 {turns.length === 0 && !interimTranscript ? (
                   <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -584,7 +592,7 @@ function App() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-none flex-col gap-2">
                 <Textarea
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}

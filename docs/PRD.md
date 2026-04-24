@@ -1,85 +1,95 @@
-# PRD — Voice Assistant Feeling Probe
+# PRD — Realtime Architecture-First Voice Assistant POC
 
 ## Objective
-Create two very small browser-based proof-of-concepts for a Neste-style customer service voice assistant and compare them side by side.
+Build the first meaningful browser-based proof-of-concept for a Neste-style customer service voice assistant.
 
-The comparison is not about business correctness yet. It is about feel, responsiveness, clarity, and demo viability.
+This phase is **not** about broad business correctness yet.
+This phase is about proving the architecture and getting to a working voice chat as quickly as possible.
 
-## Scope
-Build two separate apps:
+## Current scope
+Build only the Realtime path first under `apps/realtime`.
 
-1. `apps/realtime`
-   - speech-to-speech
-   - optimized for natural conversational feel
+The TTS path is deferred until the Realtime architecture has been validated.
 
-2. `apps/tts`
-   - speech-to-text -> text model -> text-to-speech
-   - optimized for control and predictability
+## Core architecture
+The POC should prove this turn flow:
 
-## Shared baseline
-Both POCs must use the same initial assistant baseline:
+1. user speaks
+2. transcript goes to backend
+3. backend classifies the turn and resolves what is allowed to be said
+4. backend returns a strict decision object
+5. Realtime speaks the approved Finnish text naturally without adding facts
 
-"You are a Neste customer service specialist, specialising in Neste mobile app scenarios. Keep answers concise, calm, and practical. If the user is unclear, ask one short clarifying question. Do not invent company policy or app features."
+## Decision contract
+The backend decision object must contain:
+- `mode` = `answer` | `clarify` | `escalate`
+- `approved_text_fi`
+- `case_id`
+- `confidence`
+
+This object is the hard logic boundary.
+Realtime is the conversational layer only.
+
+## Demo logic for v0
+There is no KB yet.
+There is no retrieval yet.
+
+Instead, the backend uses a tiny hard-coded demo layer with 5 Finnish reply templates in a generic gas station mobile app context.
+
+Suggested template areas:
+- general help
+- finding a station or service
+- payment or card problem
+- receipt or transaction problem
+- technical / update / login problem
 
 ## Users
 Internal team first.
 Secondarily a client audience in a Teams demo.
 
 ## Primary questions to answer
-1. Which interaction style feels better in live use?
-2. Which one is more stable for a remote demo?
-3. Is the extra naturalness of Realtime worth the lower controllability?
-4. Does the TTS chain feel too stiff or still good enough?
+1. Does the architecture work end to end?
+2. Does Realtime still feel natural when it is tightly constrained by backend logic?
+3. Is the interaction credible enough for a live client demo?
+4. What should be the next layer after this: simulated case pack or real KB?
 
 ## Functional requirements
-Both POCs must:
+The Realtime POC must:
 - run locally in desktop browser
+- connect and disconnect cleanly
 - accept spoken user input
-- produce spoken assistant output
 - show user transcript
+- send transcript to backend
+- receive a decision object from backend
+- speak `approved_text_fi` aloud in Finnish
 - show assistant transcript
 - show current status/state
 - support repeated turns in a single session
 
-Realtime POC must:
-- connect and disconnect cleanly
-- handle low-latency live conversation
-- feel responsive enough for a client demo
-
-TTS POC must:
-- capture spoken input
-- transcribe accurately enough for a demo
-- generate a text response
-- synthesize that response to speech
-
-## Non-goals
-- no production support logic
-- no use case knowledge base yet
-- no integrations to client systems
-- no call center features
-- no escalation workflows
-- no auth beyond local env setup
-
 ## UX requirements
 - clean, minimal UI
-- similar visual shell in both apps
 - obvious microphone / speaking / idle states
 - transcript visible at all times
+- tiny debug/status panel for `mode`, `case_id`, and `confidence`
 - avoid clutter
 
-## Evaluation criteria
-Compare the two POCs on:
-- naturalness
-- perceived intelligence
-- response speed
-- answer clarity
-- interruption handling
-- overall confidence in a Teams demo
+## Non-goals
+- no broad support knowledge base yet
+- no retrieval
+- no MCP
+- no Teams bot
+- no client-system integrations
+- no call center features
+- no escalation workflows beyond a simple demo mode
+- no production auth beyond local env setup
 
 ## Deliverables
 - monorepo scaffold
+- backend turn resolver stub
+- five hard-coded Finnish demo reply templates
 - realtime POC app
-- tts POC app
-- shared prompt baseline
 - run instructions
 - short comparison notes after manual testing
+
+## Expected next step after v0
+Once the architecture works, replace the hard-coded demo layer with a semi-simulated case pack based on screenshots and validated client pain points.

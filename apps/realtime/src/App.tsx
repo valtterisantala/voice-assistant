@@ -57,6 +57,11 @@ type SpeechRecognitionEvent = Event & {
   };
 };
 
+type SpeechRecognitionErrorEvent = Event & {
+  error?: string;
+  message?: string;
+};
+
 type BrowserSpeechRecognition = {
   continuous: boolean;
   interimResults: boolean;
@@ -66,7 +71,7 @@ type BrowserSpeechRecognition = {
   abort: () => void;
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
 };
 
 type SpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
@@ -102,6 +107,8 @@ function App() {
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const shouldListenRef = useRef(false);
+  const speechTimeoutRef = useRef<number | null>(null);
+  const speechRecoveryTimeoutRef = useRef<number | null>(null);
 
   const isConnected = connectionState === "connected";
 
@@ -133,7 +140,12 @@ function App() {
 
       dataChannel.addEventListener("message", (event) => {
         const realtimeEvent = safeJsonParse(event.data);
-        if (realtimeEvent?.type === "response.audio.done") {
+        if (
+          realtimeEvent?.type === "response.audio.done" ||
+          realtimeEvent?.type === "response.done"
+        ) {
+          clearSpeechTimeout();
+          clearSpeechRecoveryTimeout();
           setSpeechState("idle");
         }
       });
@@ -184,6 +196,9 @@ function App() {
     peerConnectionRef.current = null;
     audioRef.current?.remove();
     audioRef.current = null;
+    clearSpeechTimeout();
+    clearSpeechRecoveryTimeout();
+    window.speechSynthesis.cancel();
     setInterimTranscript("");
     setSpeechState("idle");
     setConnectionState("idle");
@@ -236,7 +251,10 @@ function App() {
       }
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
+      setErrorMessage(
+        `Speech recognition stopped${event.error ? `: ${event.error}` : ""}. Use the text input if this browser cannot access a microphone.`
+      );
       setSpeechState("idle");
     };
 
@@ -313,6 +331,7 @@ function App() {
 
   function speakApprovedText(text: string) {
     setSpeechState("speaking");
+    startSpeechRecoveryTimeout();
     const dataChannel = dataChannelRef.current;
 
     if (dataChannel?.readyState === "open") {
@@ -325,13 +344,52 @@ function App() {
           },
         })
       );
+      startSpeechTimeout(text);
       return;
     }
 
+    speakWithBrowserVoice(text);
+  }
+
+  function startSpeechTimeout(text: string) {
+    clearSpeechTimeout();
+    speechTimeoutRef.current = window.setTimeout(() => {
+      speakWithBrowserVoice(text);
+    }, 2500);
+  }
+
+  function clearSpeechTimeout() {
+    if (speechTimeoutRef.current) {
+      window.clearTimeout(speechTimeoutRef.current);
+      speechTimeoutRef.current = null;
+    }
+  }
+
+  function startSpeechRecoveryTimeout() {
+    clearSpeechRecoveryTimeout();
+    speechRecoveryTimeoutRef.current = window.setTimeout(() => {
+      setSpeechState("idle");
+    }, 10000);
+  }
+
+  function clearSpeechRecoveryTimeout() {
+    if (speechRecoveryTimeoutRef.current) {
+      window.clearTimeout(speechRecoveryTimeoutRef.current);
+      speechRecoveryTimeoutRef.current = null;
+    }
+  }
+
+  function speakWithBrowserVoice(text: string) {
+    clearSpeechTimeout();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "fi-FI";
     utterance.rate = 0.96;
     utterance.onend = () => {
+      clearSpeechRecoveryTimeout();
+      setSpeechState("idle");
+    };
+    utterance.onerror = () => {
+      clearSpeechRecoveryTimeout();
       setSpeechState("idle");
     };
     window.speechSynthesis.cancel();

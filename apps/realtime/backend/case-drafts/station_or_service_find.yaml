@@ -1,0 +1,28 @@
+case_id: station_or_service_find
+intent: Help the user find stations or station services in the app.
+goal: Guide the user to station search and service filters.
+triggers:
+  - asema
+  - aseman
+  - kartta
+  - palvelu
+  - pesu
+  - lataus
+  - ravintola
+facts:
+  - The demo app has a station search view.
+  - The station search can be filtered by service.
+retry_guidance: Point the user toward the station search entry point.
+clarify_guidance: Explain station search as the app map view for nearby stations.
+escalate_when: The user reports a billing or refund issue instead.
+steps:
+  - step_id: station_open_search
+    action: Avaa ensin sovelluksesta asemahaku.
+    confirmation: Näitkö karttanäkymän auki?
+    retry_hint: Okei. Etsi alareunasta kohta Asemat ja napauta sitä. Löytyikö se?
+    clarify_hint: Asemahaku on sovelluksen karttanäkymä, jossa näkyvät lähimmät asemat. Näetkö sen kohdan?
+  - step_id: station_use_filter
+    action: Hyvä. Napauta seuraavaksi suodattimia ja valitse tarvitsemasi palvelu.
+    confirmation: Löytyikö sopiva asema?
+    retry_hint: Ei hätää. Katso karttanäkymän yläreunasta suodatinpainike. Näkyykö se?
+    clarify_hint: Suodattimella tarkoitan valintaa, jolla rajaat esimerkiksi pesun tai latauksen. Näkyykö sellainen?

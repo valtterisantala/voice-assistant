@@ -30,11 +30,15 @@ When the resolver is waiting for confirmation:
 
 Troubleshooting case content is authored separately from this behavior spec.
 
-For the current POC, the authored demo case source is:
+For the current POC, the authored demo case sources are sparse YAML drafts:
 
-`apps/realtime/backend/cases/demo-cases.json`
+`apps/realtime/backend/case-drafts/*.yaml`
 
-That file owns demo case IDs, keywords, steps, approved Finnish replies, retry text, and clarification text.
+Those drafts own demo case IDs, triggers, facts, goals, and step guidance.
+Build-time tooling expands them into runtime dialogue at:
+
+`apps/realtime/backend/generated/case-dialogue.json`
+
 The generated behavior policy owns how the resolver should behave around that content.
 
 ## Realtime Delivery

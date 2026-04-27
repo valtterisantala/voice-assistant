@@ -8,6 +8,7 @@
     "preview": "vite preview",
     "backend:dev": "node backend/server.js",
     "policy:compile": "node backend/compile-policy.js",
+    "cases:compile": "node backend/compile-cases.js",
     "resolver:samples": "node backend/sample-runner.js"
   },
   "dependencies": {

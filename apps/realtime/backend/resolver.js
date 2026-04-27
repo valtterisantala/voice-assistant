@@ -1,5 +1,6 @@
 const behaviorPolicy = require("./generated/behavior-policy.json");
-const caseContent = require("./cases/demo-cases.json");
+const caseDialogue = require("./generated/case-dialogue.json");
+const caseContent = caseDialogue.cases;
 
 const sessions = new Map();
 const DEFAULT_SESSION_ID = "local-demo";
@@ -444,6 +445,6 @@ function normalizeSessionId(sessionId) {
 
 module.exports = {
   behaviorPolicy,
-  caseContent,
+  caseDialogue,
   resolveTurn,
 };

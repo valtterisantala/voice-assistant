@@ -1,0 +1,172 @@
+{
+  "dialogue_version": "2026-04-27-poc-1f",
+  "generated_from": {
+    "behavior_policy_version": "2026-04-27-poc-1e",
+    "draft_dir": "apps/realtime/backend/case-drafts"
+  },
+  "cases": [
+    {
+      "case_id": "general_app_help",
+      "intent": "Help the user choose the right demo support area.",
+      "goal": "Route vague app-help requests to one of the supported demo topics.",
+      "keywords": [
+        "apu",
+        "auttaa",
+        "sovellus",
+        "ongelma"
+      ],
+      "facts": [
+        "Supported demo topics are maksu, kuitti, kirjautuminen, and asema."
+      ],
+      "retry_guidance": "Ei hätää. Valitse näistä yksi",
+      "clarify_guidance": "Tarkoitan ongelman aihetta",
+      "escalate_when": "Billing, refund, or double-charge language appears.",
+      "steps": [
+        {
+          "step_id": "general_choose_area",
+          "approved_text_fi": "Joo, autan. Liittyykö tämä maksuun, kuittiin, kirjautumiseen vai aseman etsimiseen?",
+          "retry_text_fi": "Ei hätää. Onko aihe maksu, kuitti, kirjautuminen vai asema?",
+          "clarify_text_fi": "Tarkoitan ongelman aihetta. Onko kyse maksusta, kuitista, kirjautumisesta vai asemasta?"
+        }
+      ]
+    },
+    {
+      "case_id": "payment_or_card_issue",
+      "intent": "Help the user check payment method or card selection.",
+      "goal": "Guide the user to payment methods and active card selection.",
+      "keywords": [
+        "maksu",
+        "maksaa",
+        "kortti",
+        "pankki",
+        "apple pay",
+        "google pay"
+      ],
+      "facts": [
+        "The demo app has payment methods.",
+        "The active card is the one used for app payments."
+      ],
+      "retry_guidance": "Point the user toward profile and payment methods.",
+      "clarify_guidance": "Explain what payment methods and active card mean.",
+      "escalate_when": "The user reports duplicate charge, refund, or money dispute.",
+      "steps": [
+        {
+          "step_id": "payment_open_methods",
+          "approved_text_fi": "Avaa ensin sovelluksen maksutavat. Näetkö siellä korttisi?",
+          "retry_text_fi": "Okei. Avaa oma profiili ja etsi kohta Maksutavat. Löytyikö se?",
+          "clarify_text_fi": "Maksutavoissa näkyy kortti, jolla sovellus maksaa ostot. Näetkö sen listan?"
+        },
+        {
+          "step_id": "payment_select_card",
+          "approved_text_fi": "Hyvä. Valitse oikea kortti aktiiviseksi maksutavaksi. Onnistuiko se?",
+          "retry_text_fi": "Ei hätää. Napauta korttia kerran ja katso vaihtuuko se valituksi. Muuttuiko valinta?",
+          "clarify_text_fi": "Aktiivinen kortti on se, jota sovellus käyttää maksussa. Näkyykö valittu-merkintä?"
+        }
+      ]
+    },
+    {
+      "case_id": "receipt_or_transaction_issue",
+      "intent": "Help the user find receipts or transaction history.",
+      "goal": "Guide the user to history and then to the selected transaction.",
+      "keywords": [
+        "kuitti",
+        "kuitit",
+        "tapahtuma",
+        "ostos",
+        "historia",
+        "tankkaus"
+      ],
+      "facts": [
+        "The demo app has transaction history.",
+        "Receipt details are opened from a transaction row."
+      ],
+      "retry_guidance": "Point the user toward events or purchase history.",
+      "clarify_guidance": "Explain transaction history and transaction rows in plain Finnish.",
+      "escalate_when": "The user reports duplicate charge, refund, or money dispute.",
+      "steps": [
+        {
+          "step_id": "receipt_open_history",
+          "approved_text_fi": "Avaa ensin tapahtumahistoria sovelluksesta. Näetkö ostoksen siellä?",
+          "retry_text_fi": "Okei. Etsi valikosta Tapahtumat tai Ostohistoria. Löytyikö jompikumpi?",
+          "clarify_text_fi": "Tapahtumahistoria on lista aiemmista ostoista. Näetkö sellaisen listan?"
+        },
+        {
+          "step_id": "receipt_open_transaction",
+          "approved_text_fi": "Hyvä. Avaa kyseinen ostos listalta. Näkyykö kuitin tiedot?",
+          "retry_text_fi": "Ei hätää. Napauta ostoriviä kerran. Avautuuko siitä lisätiedot?",
+          "clarify_text_fi": "Ostorivi tarkoittaa sitä yksittäistä tapahtumaa listassa. Pääsetkö avaamaan sen?"
+        }
+      ]
+    },
+    {
+      "case_id": "station_or_service_find",
+      "intent": "Help the user find stations or station services in the app.",
+      "goal": "Guide the user to station search and service filters.",
+      "keywords": [
+        "asema",
+        "aseman",
+        "kartta",
+        "palvelu",
+        "pesu",
+        "lataus",
+        "ravintola"
+      ],
+      "facts": [
+        "The demo app has a station search view.",
+        "The station search can be filtered by service."
+      ],
+      "retry_guidance": "Point the user toward the station search entry point.",
+      "clarify_guidance": "Explain station search as the app map view for nearby stations.",
+      "escalate_when": "The user reports a billing or refund issue instead.",
+      "steps": [
+        {
+          "step_id": "station_open_search",
+          "approved_text_fi": "Avaa ensin sovelluksesta asemahaku. Näitkö karttanäkymän auki?",
+          "retry_text_fi": "Okei. Etsi alareunasta kohta Asemat ja napauta sitä. Löytyikö se?",
+          "clarify_text_fi": "Asemahaku on sovelluksen karttanäkymä, jossa näkyvät lähimmät asemat. Näetkö sen kohdan?"
+        },
+        {
+          "step_id": "station_use_filter",
+          "approved_text_fi": "Hyvä. Napauta seuraavaksi suodattimia ja valitse tarvitsemasi palvelu. Löytyikö sopiva asema?",
+          "retry_text_fi": "Ei hätää. Katso karttanäkymän yläreunasta suodatinpainike. Näkyykö se?",
+          "clarify_text_fi": "Suodattimella tarkoitan valintaa, jolla rajaat esimerkiksi pesun tai latauksen. Näkyykö sellainen?"
+        }
+      ]
+    },
+    {
+      "case_id": "technical_update_or_login_issue",
+      "intent": "Help the user with app startup, update, or login trouble.",
+      "goal": "Try one safe app restart step, then login again if needed.",
+      "keywords": [
+        "kirjautu",
+        "salasana",
+        "päivitys",
+        "paivitys",
+        "tekninen",
+        "kaatuu",
+        "aukea"
+      ],
+      "facts": [
+        "Restarting the app is a safe first demo step.",
+        "Logout is usually found from profile or settings."
+      ],
+      "retry_guidance": "Keep the step practical and non-destructive.",
+      "clarify_guidance": "Explain the current step in layman Finnish.",
+      "escalate_when": "The user cannot access the account after repeated attempts.",
+      "steps": [
+        {
+          "step_id": "technical_restart_app",
+          "approved_text_fi": "Sulje ensin sovellus kokonaan ja avaa se uudelleen. Aukeaako se nyt?",
+          "retry_text_fi": "Okei. Pyyhkäise sovellus pois viimeisistä sovelluksista ja avaa se uudestaan. Onnistuiko?",
+          "clarify_text_fi": "Tarkoitan, että suljet sovelluksen kokonaan taustalta, et vain vaihda pois siitä. Onnistuuko se?"
+        },
+        {
+          "step_id": "technical_login_again",
+          "approved_text_fi": "Hyvä. Kokeile seuraavaksi kirjautua ulos ja takaisin sisään. Pääsitkö sisään?",
+          "retry_text_fi": "Ei hätää. Jos uloskirjautumista ei löydy, avaa profiili tai asetukset. Löytyykö se sieltä?",
+          "clarify_text_fi": "Uloskirjautuminen löytyy yleensä profiilista tai asetuksista. Näetkö jommankumman?"
+        }
+      ]
+    }
+  ]
+}

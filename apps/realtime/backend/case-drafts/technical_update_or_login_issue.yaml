@@ -1,0 +1,28 @@
+case_id: technical_update_or_login_issue
+intent: Help the user with app startup, update, or login trouble.
+goal: Try one safe app restart step, then login again if needed.
+triggers:
+  - kirjautu
+  - salasana
+  - päivitys
+  - paivitys
+  - tekninen
+  - kaatuu
+  - aukea
+facts:
+  - Restarting the app is a safe first demo step.
+  - Logout is usually found from profile or settings.
+retry_guidance: Keep the step practical and non-destructive.
+clarify_guidance: Explain the current step in layman Finnish.
+escalate_when: The user cannot access the account after repeated attempts.
+steps:
+  - step_id: technical_restart_app
+    action: Sulje ensin sovellus kokonaan ja avaa se uudelleen.
+    confirmation: Aukeaako se nyt?
+    retry_hint: Okei. Pyyhkäise sovellus pois viimeisistä sovelluksista ja avaa se uudestaan. Onnistuiko?
+    clarify_hint: Tarkoitan, että suljet sovelluksen kokonaan taustalta, et vain vaihda pois siitä. Onnistuuko se?
+  - step_id: technical_login_again
+    action: Hyvä. Kokeile seuraavaksi kirjautua ulos ja takaisin sisään.
+    confirmation: Pääsitkö sisään?
+    retry_hint: Ei hätää. Jos uloskirjautumista ei löydy, avaa profiili tai asetukset. Löytyykö se sieltä?
+    clarify_hint: Uloskirjautuminen löytyy yleensä profiilista tai asetuksista. Näetkö jommankumman?

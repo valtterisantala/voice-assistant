@@ -1,0 +1,18 @@
+case_id: general_app_help
+intent: Help the user choose the right demo support area.
+goal: Route vague app-help requests to one of the supported demo topics.
+triggers:
+  - apu
+  - auttaa
+  - sovellus
+  - ongelma
+facts:
+  - Supported demo topics are maksu, kuitti, kirjautuminen, and asema.
+retry_guidance: Ei hätää. Valitse näistä yksi
+clarify_guidance: Tarkoitan ongelman aihetta
+escalate_when: Billing, refund, or double-charge language appears.
+steps:
+  - step_id: general_choose_area
+    action: Joo, autan. Liittyykö tämä maksuun, kuittiin, kirjautumiseen vai aseman etsimiseen?
+    retry_hint: Ei hätää. Onko aihe maksu, kuitti, kirjautuminen vai asema?
+    clarify_hint: Tarkoitan ongelman aihetta. Onko kyse maksusta, kuitista, kirjautumisesta vai asemasta?

@@ -1,0 +1,27 @@
+case_id: receipt_or_transaction_issue
+intent: Help the user find receipts or transaction history.
+goal: Guide the user to history and then to the selected transaction.
+triggers:
+  - kuitti
+  - kuitit
+  - tapahtuma
+  - ostos
+  - historia
+  - tankkaus
+facts:
+  - The demo app has transaction history.
+  - Receipt details are opened from a transaction row.
+retry_guidance: Point the user toward events or purchase history.
+clarify_guidance: Explain transaction history and transaction rows in plain Finnish.
+escalate_when: The user reports duplicate charge, refund, or money dispute.
+steps:
+  - step_id: receipt_open_history
+    action: Avaa ensin tapahtumahistoria sovelluksesta.
+    confirmation: Näetkö ostoksen siellä?
+    retry_hint: Okei. Etsi valikosta Tapahtumat tai Ostohistoria. Löytyikö jompikumpi?
+    clarify_hint: Tapahtumahistoria on lista aiemmista ostoista. Näetkö sellaisen listan?
+  - step_id: receipt_open_transaction
+    action: Hyvä. Avaa kyseinen ostos listalta.
+    confirmation: Näkyykö kuitin tiedot?
+    retry_hint: Ei hätää. Napauta ostoriviä kerran. Avautuuko siitä lisätiedot?
+    clarify_hint: Ostorivi tarkoittaa sitä yksittäistä tapahtumaa listassa. Pääsetkö avaamaan sen?

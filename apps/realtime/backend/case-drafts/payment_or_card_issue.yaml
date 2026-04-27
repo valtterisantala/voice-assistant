@@ -1,0 +1,27 @@
+case_id: payment_or_card_issue
+intent: Help the user check payment method or card selection.
+goal: Guide the user to payment methods and active card selection.
+triggers:
+  - maksu
+  - maksaa
+  - kortti
+  - pankki
+  - apple pay
+  - google pay
+facts:
+  - The demo app has payment methods.
+  - The active card is the one used for app payments.
+retry_guidance: Point the user toward profile and payment methods.
+clarify_guidance: Explain what payment methods and active card mean.
+escalate_when: The user reports duplicate charge, refund, or money dispute.
+steps:
+  - step_id: payment_open_methods
+    action: Avaa ensin sovelluksen maksutavat.
+    confirmation: Näetkö siellä korttisi?
+    retry_hint: Okei. Avaa oma profiili ja etsi kohta Maksutavat. Löytyikö se?
+    clarify_hint: Maksutavoissa näkyy kortti, jolla sovellus maksaa ostot. Näetkö sen listan?
+  - step_id: payment_select_card
+    action: Hyvä. Valitse oikea kortti aktiiviseksi maksutavaksi.
+    confirmation: Onnistuiko se?
+    retry_hint: Ei hätää. Napauta korttia kerran ja katso vaihtuuko se valituksi. Muuttuiko valinta?
+    clarify_hint: Aktiivinen kortti on se, jota sovellus käyttää maksussa. Näkyykö valittu-merkintä?

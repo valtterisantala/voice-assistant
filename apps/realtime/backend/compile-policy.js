@@ -27,7 +27,7 @@ async function main() {
         {
           role: "system",
           content:
-            "Compile the human behavior spec into deterministic runtime JSON. Return JSON only.",
+            "Compile the human behavior spec into deterministic behavior-only runtime JSON. Do not include case dialogue, case keywords, case steps, or approved response text. Return JSON only.",
         },
         {
           role: "user",

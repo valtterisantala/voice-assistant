@@ -1,4 +1,5 @@
 const behaviorPolicy = require("./generated/behavior-policy.json");
+const caseContent = require("./cases/demo-cases.json");
 
 const sessions = new Map();
 const DEFAULT_SESSION_ID = "local-demo";
@@ -324,7 +325,7 @@ function buildDecision({
 }
 
 function findCase(cleanTranscript) {
-  const specificCases = behaviorPolicy.cases.filter(
+  const specificCases = caseContent.filter(
     (caseConfig) => caseConfig.case_id !== "general_app_help"
   );
   const scoredCases = specificCases
@@ -352,7 +353,7 @@ function findCase(cleanTranscript) {
     };
   }
 
-  const generalCase = behaviorPolicy.cases.find((caseConfig) =>
+  const generalCase = caseContent.find((caseConfig) =>
     containsAny(cleanTranscript, caseConfig.keywords)
   );
 
@@ -371,7 +372,7 @@ function firstStep(caseId) {
 }
 
 function getCase(caseId) {
-  return behaviorPolicy.cases.find((caseConfig) => caseConfig.case_id === caseId);
+  return caseContent.find((caseConfig) => caseConfig.case_id === caseId);
 }
 
 function classifyFollowup(cleanTranscript) {
@@ -443,5 +444,6 @@ function normalizeSessionId(sessionId) {
 
 module.exports = {
   behaviorPolicy,
+  caseContent,
   resolveTurn,
 };

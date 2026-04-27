@@ -65,9 +65,9 @@ function parseCaseDraft(rawYaml, fileName) {
     if (indent === 2 && line.startsWith("- ")) {
       const item = line.slice(2).trim();
 
-      if (currentArrayKey === "steps") {
+      if (currentArrayKey === "steps" || currentArrayKey === "approved_facts") {
         currentStep = {};
-        draft.steps.push(currentStep);
+        draft[currentArrayKey].push(currentStep);
 
         if (item) {
           const [key, rawValue] = splitKeyValue(item, fileName);
@@ -80,7 +80,11 @@ function parseCaseDraft(rawYaml, fileName) {
       continue;
     }
 
-    if (indent === 4 && currentArrayKey === "steps" && currentStep) {
+    if (
+      indent === 4 &&
+      (currentArrayKey === "steps" || currentArrayKey === "approved_facts") &&
+      currentStep
+    ) {
       const [key, rawValue] = splitKeyValue(line, fileName);
       currentStep[key] = parseScalar(rawValue);
       continue;
@@ -123,6 +127,11 @@ function expandDraft(draft) {
     goal: requiredString(draft, "goal", draft.case_id),
     keywords: requiredArray(draft, "triggers"),
     facts: requiredArray(draft, "facts"),
+    approved_facts: optionalArray(draft, "approved_facts").map((fact) => ({
+      fact_id: requiredString(fact, "fact_id", draft.case_id),
+      triggers: splitCsv(requiredString(fact, "triggers", draft.case_id)),
+      answer_fi: requiredString(fact, "answer_fi", draft.case_id),
+    })),
     retry_guidance: requiredString(draft, "retry_guidance", draft.case_id),
     clarify_guidance: requiredString(draft, "clarify_guidance", draft.case_id),
     escalate_when: requiredString(draft, "escalate_when", draft.case_id),
@@ -154,6 +163,25 @@ function requiredArray(source, key) {
   return source[key];
 }
 
+function optionalArray(source, key) {
+  if (source[key] === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(source[key])) {
+    throw new Error(`Expected "${key}" to be an array`);
+  }
+
+  return source[key];
+}
+
+function splitCsv(value) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function validateCaseDialogue(caseDialogue) {
   const caseIds = new Set();
 
@@ -163,6 +191,12 @@ function validateCaseDialogue(caseDialogue) {
     }
 
     caseIds.add(caseConfig.case_id);
+
+    for (const fact of caseConfig.approved_facts) {
+      if (!fact.answer_fi.includes("?")) {
+        throw new Error(`${caseConfig.case_id}/${fact.fact_id}: answer_fi must ask a question`);
+      }
+    }
 
     for (const step of caseConfig.steps) {
       for (const key of ["approved_text_fi", "retry_text_fi", "clarify_text_fi"]) {

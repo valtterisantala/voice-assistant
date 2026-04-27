@@ -8,6 +8,10 @@ triggers:
   - ongelma
 facts:
   - Supported demo topics are maksu, kuitti, kirjautuminen, and asema.
+approved_facts:
+  - fact_id: supported_topics
+    triggers: mitä osaat, mihin voit auttaa, aiheet, aiheita
+    answer_fi: Tämä demo auttaa vain maksun, kuitin, kirjautumisen ja aseman etsimisen kanssa. Valitaanko joku niistä?
 retry_guidance: Ei hätää. Valitse näistä yksi
 clarify_guidance: Tarkoitan ongelman aihetta
 escalate_when: Billing, refund, or double-charge language appears.

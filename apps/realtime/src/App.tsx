@@ -38,6 +38,7 @@ type Decision = {
   last_topic?: string | null;
   reset_reason?: string | null;
   match_reason?: string | null;
+  coverage_tier?: string | null;
 };
 
 type Turn = {
@@ -726,6 +727,8 @@ function App() {
                 />
                 <Separator />
                 <DebugRow label="last_topic" value={decision?.last_topic ?? "-"} />
+                <Separator />
+                <DebugRow label="coverage_tier" value={decision?.coverage_tier ?? "-"} />
                 <Separator />
                 <DebugRow label="reset_reason" value={decision?.reset_reason ?? "-"} />
                 <Separator />

@@ -11,6 +11,13 @@ triggers:
 facts:
   - The demo app has payment methods.
   - The active card is the one used for app payments.
+approved_facts:
+  - fact_id: payment_methods
+    triggers: maksutavat, missä kortti, korttilista
+    answer_fi: Maksutavat on sovelluksen kohta, jossa näkyvät maksamiseen käytettävät kortit. Jatketaanko siitä?
+  - fact_id: active_card
+    triggers: aktiivinen kortti, valittu kortti, mikä kortti
+    answer_fi: Aktiivinen kortti on se kortti, jota sovellus käyttää maksussa. Näkyykö valittu-merkintä?
 retry_guidance: Point the user toward profile and payment methods.
 clarify_guidance: Explain what payment methods and active card mean.
 escalate_when: The user reports duplicate charge, refund, or money dispute.

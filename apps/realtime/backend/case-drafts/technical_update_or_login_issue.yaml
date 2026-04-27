@@ -12,6 +12,13 @@ triggers:
 facts:
   - Restarting the app is a safe first demo step.
   - Logout is usually found from profile or settings.
+approved_facts:
+  - fact_id: full_restart
+    triggers: sulje kokonaan, taustalta, käynnistä uudelleen
+    answer_fi: Tässä tarkoitetaan, että suljet sovelluksen kokonaan taustalta ja avaat sen uudestaan. Onnistuuko se?
+  - fact_id: logout_location
+    triggers: uloskirjautuminen, profiili, asetukset
+    answer_fi: Uloskirjautuminen löytyy yleensä profiilista tai asetuksista. Näetkö jommankumman?
 retry_guidance: Keep the step practical and non-destructive.
 clarify_guidance: Explain the current step in layman Finnish.
 escalate_when: The user cannot access the account after repeated attempts.

@@ -11,6 +11,13 @@ triggers:
 facts:
   - The demo app has transaction history.
   - Receipt details are opened from a transaction row.
+approved_facts:
+  - fact_id: transaction_history
+    triggers: tapahtumahistoria, ostohistoria, historia
+    answer_fi: Tapahtumahistoria on lista aiemmista ostoista sovelluksessa. Näetkö sen listan?
+  - fact_id: transaction_row
+    triggers: ostorivi, tapahtumarivi, rivi
+    answer_fi: Ostorivi tarkoittaa yhtä ostoa tapahtumalistassa. Pääsetkö avaamaan sen?
 retry_guidance: Point the user toward events or purchase history.
 clarify_guidance: Explain transaction history and transaction rows in plain Finnish.
 escalate_when: The user reports duplicate charge, refund, or money dispute.

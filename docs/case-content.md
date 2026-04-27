@@ -40,6 +40,7 @@ Each draft is intentionally sparse. Authors provide:
 - intent and goal
 - trigger words
 - allowed facts
+- approved short fact answers
 - high-level retry and clarification guidance
 - step action and confirmation phrasing
 
@@ -53,6 +54,10 @@ triggers:
   - maksu
 facts:
   - The demo app has payment methods.
+approved_facts:
+  - fact_id: active_card
+    triggers: aktiivinen kortti, valittu kortti, mikä kortti
+    answer_fi: Aktiivinen kortti on se kortti, jota sovellus käyttää maksussa. Näkyykö valittu-merkintä?
 retry_guidance: Point the user toward profile and payment methods.
 clarify_guidance: Explain what payment methods and active card mean.
 escalate_when: The user reports duplicate charge, refund, or money dispute.
@@ -77,6 +82,18 @@ npm run realtime:cases:compile
 ```
 
 The resolver consumes this generated JSON at runtime. It does not parse YAML at runtime.
+
+## Coverage Model
+
+The resolver handles four deterministic coverage tiers:
+
+- `covered_followup`: the user continues the active step with yes, no, unclear, or cannot-find style language.
+- `approved_fact`: the user asks a short question that matches authored `approved_facts` in the current or newly matched case.
+- `case_switch`: the user clearly changes from the active case to another known case.
+- `out_of_coverage`: the user asks for something outside the current demo scope.
+
+Out-of-coverage replies must name the demo boundary instead of inventing support knowledge.
+The returned decision includes `coverage_tier` and `match_reason` so the branch is visible in the UI debug panel.
 
 Authoring workflow:
 

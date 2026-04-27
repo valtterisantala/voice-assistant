@@ -56,10 +56,17 @@ const escalationKeywordFallbacks = [
   "hyvitys",
   "rahat",
 ];
+const coverageFallbackText =
+  "Tämä demo kattaa nyt vain maksut, kuitit, kirjautumisen ja aseman etsimisen. Valitaanko joku niistä?";
+const harmlessMetaMatchers = {
+  greeting: ["hei", "moi", "terve", "heippa"],
+  repeat: ["toista", "sano uudelleen", "uudestaan", "voitko toistaa"],
+  capability: ["mitä osaat", "mita osaat", "missä voit auttaa", "missa voit auttaa"],
+};
 
 const followupMatchers = {
-  yes: ["joo", "kyllä", "onnistui", "onnistu", "sain", "löytyi", "loytyi", "valmis", "tein", "done"],
   no: ["ei", "eipä", "nope", "ei toimi", "ei onnistunut", "ei auta", "sama ongelma"],
+  yes: ["joo", "kyllä", "onnistui", "onnistu", "sain", "löytyi", "loytyi", "valmis", "tein", "done"],
   unclear: ["mitä", "mita", "tarkoitat", "en ymmärrä", "en tajua", "selitä", "selita"],
   cannot_find: ["en löydä", "en loyda", "missä", "missa", "ei näy", "ei nay", "puuttuu"],
 };
@@ -109,14 +116,39 @@ function resolveTurn(transcript, options = {}) {
     const explicitCaseMatch = findCase(cleanTranscript);
     const explicitCase = explicitCaseMatch?.caseConfig;
     const followupType = classifyFollowup(cleanTranscript);
+    const currentCase = getCase(session.case_id);
+    const currentFact = findApprovedFact(cleanTranscript, currentCase);
+    const metaResponse = resolveHarmlessMeta(cleanTranscript, session, sessionId);
+
+    if (metaResponse) {
+      return metaResponse;
+    }
 
     if (
       explicitCase &&
       explicitCase.case_id !== "general_app_help" &&
       explicitCase.case_id !== session.case_id &&
-      followupType === "unknown"
+      followupType !== "yes"
     ) {
-      return startCase(session, explicitCase, sessionId, `topic_switch:${explicitCaseMatch.match_reason}`);
+      return startCase(session, explicitCase, sessionId, `coverage:case_switch:${explicitCaseMatch.match_reason}`);
+    }
+
+    if (currentFact && followupType === "unknown") {
+      return factDecision(currentCase, currentFact, session, sessionId, "coverage:approved_fact:active_case", true);
+    }
+
+    if (followupType === "unknown" && !explicitCase) {
+      return buildDecision({
+        mode: "clarify",
+        approved_text_fi: `Tuo menee tämän demon ulkopuolelle. Jatketaanko aiheesta ${caseLabelsFi[currentCase.case_id]}?`,
+        case_id: currentCase.case_id,
+        confidence: 0.52,
+        step_id: "out_of_coverage_active_case",
+        awaits_confirmation: true,
+        session_id: sessionId,
+        session,
+        match_reason: "coverage:out_of_coverage:active_case",
+      });
     }
 
     return resolveFollowup(cleanTranscript, session, sessionId);
@@ -127,39 +159,52 @@ function resolveTurn(transcript, options = {}) {
 
   if (!matchedCase || matchedCase.case_id === "general_app_help") {
     const recentCaseId = lastCaseId(session);
-    const resetReason = matchedCase ? "general_app_help" : "no_case_match";
+    const metaResponse = resolveHarmlessMeta(cleanTranscript, session, sessionId);
+
+    if (metaResponse) {
+      return metaResponse;
+    }
+
+    const resetReason = matchedCase ? "general_app_help" : "out_of_coverage";
     resetActiveCase(session, resetReason);
 
     if (recentCaseId && recentCaseId !== "general_app_help") {
       return buildDecision({
         mode: "clarify",
-        approved_text_fi: `Puhuttiin äsken ${caseLabelsFi[recentCaseId]}. Jatketaanko siitä, vai vaihdetaanko aihetta?`,
+        approved_text_fi: `Tuo menee tämän demon ulkopuolelle. Puhuttiin äsken ${caseLabelsFi[recentCaseId]}. Jatketaanko siitä?`,
         case_id: recentCaseId,
-        confidence: 0.58,
-        step_id: "confirm_recent_topic",
+        confidence: 0.5,
+        step_id: "out_of_coverage_recent_topic",
         awaits_confirmation: false,
         session_id: sessionId,
         session,
         reset_reason: resetReason,
-        match_reason: "recent_topic_clarification",
+        match_reason: "coverage:out_of_coverage:recent_topic",
       });
     }
 
     return buildDecision({
       mode: "clarify",
-      approved_text_fi: firstStep("general_app_help").approved_text_fi,
+      approved_text_fi: matchedCase ? firstStep("general_app_help").approved_text_fi : coverageFallbackText,
       case_id: "general_app_help",
       confidence: matchedCase ? 0.55 : 0.45,
-      step_id: firstStep("general_app_help").step_id,
+      step_id: matchedCase ? firstStep("general_app_help").step_id : "out_of_coverage",
       awaits_confirmation: false,
       session_id: sessionId,
       session,
       reset_reason: resetReason,
-      match_reason: caseMatch?.match_reason ?? "no_case_match",
+      match_reason: caseMatch?.match_reason ?? "coverage:out_of_coverage",
     });
   }
 
-  return startCase(session, matchedCase, sessionId, caseMatch.match_reason);
+  const matchedFact = findApprovedFact(cleanTranscript, matchedCase);
+
+  if (matchedFact) {
+    rememberCase(session, matchedCase.case_id);
+    return factDecision(matchedCase, matchedFact, session, sessionId, "coverage:approved_fact:new_case", false);
+  }
+
+  return startCase(session, matchedCase, sessionId, `coverage:case_start:${caseMatch.match_reason}`);
 }
 
 function resolveFollowup(cleanTranscript, session, sessionId) {
@@ -184,7 +229,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
         session_id: sessionId,
         session,
         reset_reason: resetReason,
-        match_reason: "followup:yes",
+        match_reason: "coverage:covered_followup:yes",
       });
     }
 
@@ -192,7 +237,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
     session.step_id = nextStep.step_id;
     session.awaiting_confirmation = true;
     session.retry_count = 0;
-    return stepDecision(currentCase, nextStep, sessionId, 0.82, session, "followup:yes");
+    return stepDecision(currentCase, nextStep, sessionId, 0.82, session, "coverage:covered_followup:yes");
   }
 
   if (followupType === "cannot_find") {
@@ -206,7 +251,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
       awaits_confirmation: true,
       session_id: sessionId,
       session,
-      match_reason: "followup:cannot_find",
+      match_reason: "coverage:covered_followup:cannot_find",
     });
   }
 
@@ -220,7 +265,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
       awaits_confirmation: true,
       session_id: sessionId,
       session,
-      match_reason: "followup:unclear",
+      match_reason: "coverage:covered_followup:unclear",
     });
   }
 
@@ -241,7 +286,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
         session_id: sessionId,
         session,
         reset_reason: resetReason,
-        match_reason: "followup:no",
+        match_reason: "coverage:covered_followup:no",
       });
     }
 
@@ -254,21 +299,35 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
       awaits_confirmation: true,
       session_id: sessionId,
       session,
-      match_reason: "followup:no",
+      match_reason: "coverage:covered_followup:no",
     });
   }
 
   return buildDecision({
     mode: "clarify",
     approved_text_fi:
-      "Sano vaikka onnistuiko se vai jäikö kohta löytymättä, niin jatketaan siitä.",
+      "En lähde arvaamaan. Tässä kohdassa voin jatkaa, jos sanot onnistuiko se, jäikö kohta löytymättä vai haluatko vaihtaa aihetta.",
     case_id: currentCase.case_id,
     confidence: 0.62,
     step_id: currentStep.step_id,
     awaits_confirmation: true,
     session_id: sessionId,
     session,
-    match_reason: "followup:unknown",
+    match_reason: "coverage:covered_followup:unknown",
+  });
+}
+
+function factDecision(currentCase, fact, session, sessionId, matchReason, awaitsConfirmation) {
+  return buildDecision({
+    mode: "answer",
+    approved_text_fi: fact.answer_fi,
+    case_id: currentCase.case_id,
+    confidence: 0.76,
+    step_id: `fact:${fact.fact_id}`,
+    awaits_confirmation: awaitsConfirmation,
+    session_id: sessionId,
+    session,
+    match_reason: matchReason,
   });
 }
 
@@ -322,7 +381,48 @@ function buildDecision({
     last_topic: session ? lastCaseId(session) : null,
     reset_reason,
     match_reason,
+    coverage_tier: coverageTier(match_reason),
   };
+}
+
+function coverageTier(matchReason) {
+  if (!matchReason) {
+    return "unknown";
+  }
+
+  if (matchReason.includes("covered_followup")) {
+    return "covered_followup";
+  }
+
+  if (matchReason.includes("approved_fact")) {
+    return "approved_fact";
+  }
+
+  if (matchReason.includes("case_switch")) {
+    return "case_switch";
+  }
+
+  if (matchReason.includes("out_of_coverage")) {
+    return "out_of_coverage";
+  }
+
+  if (matchReason.includes("escalation")) {
+    return "escalation";
+  }
+
+  if (matchReason.includes("meta")) {
+    return "meta";
+  }
+
+  if (
+    matchReason.includes("case_start") ||
+    matchReason.includes("case_score") ||
+    matchReason.includes("general_keyword")
+  ) {
+    return "case_start";
+  }
+
+  return "unknown";
 }
 
 function findCase(cleanTranscript) {
@@ -363,6 +463,61 @@ function findCase(cleanTranscript) {
       caseConfig: generalCase,
       match_reason: `general_keyword:${generalCase.case_id}`,
     };
+  }
+
+  return null;
+}
+
+function findApprovedFact(cleanTranscript, caseConfig) {
+  return caseConfig.approved_facts?.find((fact) =>
+    containsAny(cleanTranscript, fact.triggers ?? [])
+  );
+}
+
+function resolveHarmlessMeta(cleanTranscript, session, sessionId) {
+  if (containsAny(cleanTranscript, harmlessMetaMatchers.greeting)) {
+    return buildDecision({
+      mode: "clarify",
+      approved_text_fi: "Moi. Voin auttaa tässä demossa maksun, kuitin, kirjautumisen tai aseman kanssa. Mistä aloitetaan?",
+      case_id: session.case_id ?? "general_app_help",
+      confidence: 0.58,
+      step_id: "meta_greeting",
+      awaits_confirmation: false,
+      session_id: sessionId,
+      session,
+      match_reason: "coverage:meta:greeting",
+    });
+  }
+
+  if (containsAny(cleanTranscript, harmlessMetaMatchers.capability)) {
+    return buildDecision({
+      mode: "clarify",
+      approved_text_fi: coverageFallbackText,
+      case_id: session.case_id ?? "general_app_help",
+      confidence: 0.58,
+      step_id: "meta_capability",
+      awaits_confirmation: false,
+      session_id: sessionId,
+      session,
+      match_reason: "coverage:meta:capability",
+    });
+  }
+
+  if (containsAny(cleanTranscript, harmlessMetaMatchers.repeat) && session.case_id) {
+    const currentCase = getCase(session.case_id);
+    const currentStep = currentCase.steps[session.step_index] ?? currentCase.steps[0];
+
+    return buildDecision({
+      mode: "answer",
+      approved_text_fi: currentStep.approved_text_fi,
+      case_id: currentCase.case_id,
+      confidence: 0.7,
+      step_id: currentStep.step_id,
+      awaits_confirmation: true,
+      session_id: sessionId,
+      session,
+      match_reason: "coverage:meta:repeat_current_step",
+    });
   }
 
   return null;

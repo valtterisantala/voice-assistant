@@ -12,6 +12,13 @@ triggers:
 facts:
   - The demo app has a station search view.
   - The station search can be filtered by service.
+approved_facts:
+  - fact_id: station_search
+    triggers: asemahaku, karttanäkymä, kartta
+    answer_fi: Asemahaku on sovelluksen karttanäkymä, jossa näkyvät lähimmät asemat. Näetkö sen kohdan?
+  - fact_id: service_filter
+    triggers: suodatin, suodattimet, palvelu
+    answer_fi: Suodattimella rajaat esimerkiksi pesun tai latauksen kaltaisia palveluita. Näkyykö suodatinpainike?
 retry_guidance: Point the user toward the station search entry point.
 clarify_guidance: Explain station search as the app map view for nearby stations.
 escalate_when: The user reports a billing or refund issue instead.

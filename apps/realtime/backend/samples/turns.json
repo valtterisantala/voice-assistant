@@ -48,5 +48,33 @@
     "name": "clarify_context_memory_after_vague_followup",
     "session_id": "memory-demo",
     "transcript": "Mitä me oltiin tekemässä?"
+  },
+  {
+    "name": "answer_fact_payment_definition",
+    "transcript": "Mikä on aktiivinen kortti?"
+  },
+  {
+    "name": "answer_switch_start_receipt",
+    "session_id": "switch-demo",
+    "transcript": "En löydä kuittia."
+  },
+  {
+    "name": "answer_switch_to_login",
+    "session_id": "switch-demo",
+    "transcript": "Sovellus ei aukea ja kirjautuminen ei onnistu."
+  },
+  {
+    "name": "clarify_out_of_coverage",
+    "transcript": "Voitko kertoa kahvilan aukioloajat?"
+  },
+  {
+    "name": "clarify_active_out_of_coverage_start",
+    "session_id": "active-ooc-demo",
+    "transcript": "Maksu ei toimi."
+  },
+  {
+    "name": "clarify_active_out_of_coverage",
+    "session_id": "active-ooc-demo",
+    "transcript": "Miten vaihdan auton renkaat?"
   }
 ]

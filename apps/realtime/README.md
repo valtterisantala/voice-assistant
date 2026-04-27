@@ -84,10 +84,19 @@ The resolver returns small debug fields with each decision:
 - `step_id`
 - `awaits_confirmation`
 - `last_topic`
+- `coverage_tier`
 - `reset_reason`
 - `match_reason`
 
 These are deterministic breadcrumbs for explaining continuity problems. They are not a fuzzy memory layer.
+
+Coverage tiers are:
+
+- `covered_followup`
+- `approved_fact`
+- `case_switch`
+- `out_of_coverage`
+- `meta`
 
 Run the backend resolver and Realtime session proxy from the repository root:
 

@@ -18,6 +18,18 @@
       "facts": [
         "Supported demo topics are maksu, kuitti, kirjautuminen, and asema."
       ],
+      "approved_facts": [
+        {
+          "fact_id": "supported_topics",
+          "triggers": [
+            "mitä osaat",
+            "mihin voit auttaa",
+            "aiheet",
+            "aiheita"
+          ],
+          "answer_fi": "Tämä demo auttaa vain maksun, kuitin, kirjautumisen ja aseman etsimisen kanssa. Valitaanko joku niistä?"
+        }
+      ],
       "retry_guidance": "Ei hätää. Valitse näistä yksi",
       "clarify_guidance": "Tarkoitan ongelman aihetta",
       "escalate_when": "Billing, refund, or double-charge language appears.",
@@ -45,6 +57,26 @@
       "facts": [
         "The demo app has payment methods.",
         "The active card is the one used for app payments."
+      ],
+      "approved_facts": [
+        {
+          "fact_id": "payment_methods",
+          "triggers": [
+            "maksutavat",
+            "missä kortti",
+            "korttilista"
+          ],
+          "answer_fi": "Maksutavat on sovelluksen kohta, jossa näkyvät maksamiseen käytettävät kortit. Jatketaanko siitä?"
+        },
+        {
+          "fact_id": "active_card",
+          "triggers": [
+            "aktiivinen kortti",
+            "valittu kortti",
+            "mikä kortti"
+          ],
+          "answer_fi": "Aktiivinen kortti on se kortti, jota sovellus käyttää maksussa. Näkyykö valittu-merkintä?"
+        }
       ],
       "retry_guidance": "Point the user toward profile and payment methods.",
       "clarify_guidance": "Explain what payment methods and active card mean.",
@@ -79,6 +111,26 @@
       "facts": [
         "The demo app has transaction history.",
         "Receipt details are opened from a transaction row."
+      ],
+      "approved_facts": [
+        {
+          "fact_id": "transaction_history",
+          "triggers": [
+            "tapahtumahistoria",
+            "ostohistoria",
+            "historia"
+          ],
+          "answer_fi": "Tapahtumahistoria on lista aiemmista ostoista sovelluksessa. Näetkö sen listan?"
+        },
+        {
+          "fact_id": "transaction_row",
+          "triggers": [
+            "ostorivi",
+            "tapahtumarivi",
+            "rivi"
+          ],
+          "answer_fi": "Ostorivi tarkoittaa yhtä ostoa tapahtumalistassa. Pääsetkö avaamaan sen?"
+        }
       ],
       "retry_guidance": "Point the user toward events or purchase history.",
       "clarify_guidance": "Explain transaction history and transaction rows in plain Finnish.",
@@ -115,6 +167,26 @@
         "The demo app has a station search view.",
         "The station search can be filtered by service."
       ],
+      "approved_facts": [
+        {
+          "fact_id": "station_search",
+          "triggers": [
+            "asemahaku",
+            "karttanäkymä",
+            "kartta"
+          ],
+          "answer_fi": "Asemahaku on sovelluksen karttanäkymä, jossa näkyvät lähimmät asemat. Näetkö sen kohdan?"
+        },
+        {
+          "fact_id": "service_filter",
+          "triggers": [
+            "suodatin",
+            "suodattimet",
+            "palvelu"
+          ],
+          "answer_fi": "Suodattimella rajaat esimerkiksi pesun tai latauksen kaltaisia palveluita. Näkyykö suodatinpainike?"
+        }
+      ],
       "retry_guidance": "Point the user toward the station search entry point.",
       "clarify_guidance": "Explain station search as the app map view for nearby stations.",
       "escalate_when": "The user reports a billing or refund issue instead.",
@@ -149,6 +221,26 @@
       "facts": [
         "Restarting the app is a safe first demo step.",
         "Logout is usually found from profile or settings."
+      ],
+      "approved_facts": [
+        {
+          "fact_id": "full_restart",
+          "triggers": [
+            "sulje kokonaan",
+            "taustalta",
+            "käynnistä uudelleen"
+          ],
+          "answer_fi": "Tässä tarkoitetaan, että suljet sovelluksen kokonaan taustalta ja avaat sen uudestaan. Onnistuuko se?"
+        },
+        {
+          "fact_id": "logout_location",
+          "triggers": [
+            "uloskirjautuminen",
+            "profiili",
+            "asetukset"
+          ],
+          "answer_fi": "Uloskirjautuminen löytyy yleensä profiilista tai asetuksista. Näetkö jommankumman?"
+        }
       ],
       "retry_guidance": "Keep the step practical and non-destructive.",
       "clarify_guidance": "Explain the current step in layman Finnish.",

@@ -4,6 +4,7 @@ const caseContent = caseDialogue.cases;
 
 const sessions = new Map();
 const DEFAULT_SESSION_ID = "local-demo";
+const allowedFollowupTypes = new Set(behaviorPolicy.allowed_followup_types);
 const caseLabelsFi = {
   general_app_help: "sovelluksen perusasioista",
   station_or_service_find: "asemista ja tankkauksesta",
@@ -48,14 +49,6 @@ const fallbackCaseKeywords = {
     "aukea",
   ],
 };
-const escalationKeywordFallbacks = [
-  "tuplaveloitus",
-  "kahdesti",
-  "veloitettiin",
-  "veloitettu",
-  "hyvitys",
-  "rahat",
-];
 const coverageFallbackText =
   "Tämä demo kattaa nyt vain maksut, kuitit, kirjautumisen ja aseman etsimisen. Valitaanko joku niistä?";
 const harmlessMetaMatchers = {
@@ -91,10 +84,7 @@ function resolveTurn(transcript, options = {}) {
     });
   }
 
-  if (
-    containsAny(cleanTranscript, behaviorPolicy.escalation_keywords) ||
-    containsAny(cleanTranscript, escalationKeywordFallbacks)
-  ) {
+  if (containsAny(cleanTranscript, behaviorPolicy.escalation_keywords)) {
     const resetReason = "escalation_keyword";
     resetActiveCase(session, resetReason);
     return buildDecision({
@@ -144,7 +134,7 @@ function resolveTurn(transcript, options = {}) {
         case_id: currentCase.case_id,
         confidence: 0.52,
         step_id: "out_of_coverage_active_case",
-        awaits_confirmation: true,
+        awaits_confirmation: shouldAwaitStepConfirmation(),
         session_id: sessionId,
         session,
         match_reason: "coverage:out_of_coverage:active_case",
@@ -235,7 +225,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
 
     session.step_index = nextStepIndex;
     session.step_id = nextStep.step_id;
-    session.awaiting_confirmation = true;
+    session.awaiting_confirmation = shouldAwaitStepConfirmation();
     session.retry_count = 0;
     return stepDecision(currentCase, nextStep, sessionId, 0.82, session, "coverage:covered_followup:yes");
   }
@@ -248,7 +238,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
       case_id: currentCase.case_id,
       confidence: 0.72,
       step_id: currentStep.step_id,
-      awaits_confirmation: true,
+      awaits_confirmation: shouldAwaitStepConfirmation(),
       session_id: sessionId,
       session,
       match_reason: "coverage:covered_followup:cannot_find",
@@ -262,7 +252,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
       case_id: currentCase.case_id,
       confidence: 0.7,
       step_id: currentStep.step_id,
-      awaits_confirmation: true,
+      awaits_confirmation: shouldAwaitStepConfirmation(),
       session_id: sessionId,
       session,
       match_reason: "coverage:covered_followup:unclear",
@@ -296,7 +286,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
       case_id: currentCase.case_id,
       confidence: 0.74,
       step_id: currentStep.step_id,
-      awaits_confirmation: true,
+      awaits_confirmation: shouldAwaitStepConfirmation(),
       session_id: sessionId,
       session,
       match_reason: "coverage:covered_followup:no",
@@ -310,7 +300,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
     case_id: currentCase.case_id,
     confidence: 0.62,
     step_id: currentStep.step_id,
-    awaits_confirmation: true,
+    awaits_confirmation: shouldAwaitStepConfirmation(),
     session_id: sessionId,
     session,
     match_reason: "coverage:covered_followup:unknown",
@@ -336,7 +326,7 @@ function startCase(session, matchedCase, sessionId, matchReason) {
   session.case_id = matchedCase.case_id;
   session.step_index = 0;
   session.step_id = step.step_id;
-  session.awaiting_confirmation = true;
+  session.awaiting_confirmation = shouldAwaitStepConfirmation();
   session.retry_count = 0;
   rememberCase(session, matchedCase.case_id);
 
@@ -346,11 +336,11 @@ function startCase(session, matchedCase, sessionId, matchReason) {
 function stepDecision(caseConfig, step, sessionId, confidence, session, matchReason) {
   return buildDecision({
     mode: "answer",
-    approved_text_fi: step.approved_text_fi,
+    approved_text_fi: approvedStepText(step),
     case_id: caseConfig.case_id,
     confidence,
     step_id: step.step_id,
-    awaits_confirmation: true,
+    awaits_confirmation: shouldAwaitStepConfirmation(),
     session_id: sessionId,
     session,
     match_reason: matchReason,
@@ -382,7 +372,7 @@ function buildDecision({
     case_id,
     confidence,
     step_id,
-    awaits_confirmation,
+    awaits_confirmation: Boolean(awaits_confirmation),
     allowed_followup_types: behaviorPolicy.allowed_followup_types,
     session_id,
     last_topic: session ? lastCaseId(session) : null,
@@ -516,11 +506,11 @@ function resolveHarmlessMeta(cleanTranscript, session, sessionId) {
 
     return buildDecision({
       mode: "answer",
-      approved_text_fi: currentStep.approved_text_fi,
+      approved_text_fi: approvedStepText(currentStep),
       case_id: currentCase.case_id,
       confidence: 0.7,
       step_id: currentStep.step_id,
-      awaits_confirmation: true,
+      awaits_confirmation: shouldAwaitStepConfirmation(),
       session_id: sessionId,
       session,
       match_reason: "coverage:meta:repeat_current_step",
@@ -540,12 +530,24 @@ function getCase(caseId) {
 
 function classifyFollowup(cleanTranscript) {
   for (const [followupType, keywords] of Object.entries(followupMatchers)) {
+    if (!allowedFollowupTypes.has(followupType)) {
+      continue;
+    }
+
     if (containsAny(cleanTranscript, keywords)) {
       return followupType;
     }
   }
 
   return "unknown";
+}
+
+function shouldAwaitStepConfirmation() {
+  return Boolean(behaviorPolicy.confirmation_required_after_step);
+}
+
+function approvedStepText(step) {
+  return step.approved_text_fi;
 }
 
 function getSession(sessionId) {

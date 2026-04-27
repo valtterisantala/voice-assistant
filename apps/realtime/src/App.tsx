@@ -55,6 +55,20 @@ type SessionState = {
   coverage_tier: string | null;
 };
 
+type BehaviorPolicy = {
+  policy_version: string;
+  max_steps_per_turn: number;
+  tone: string;
+  natural_fillers_allowed: boolean;
+  short_turn_seconds: number;
+  confirmation_required_after_step: boolean;
+  allowed_followup_types: string[];
+};
+
+type RealtimeConfig = {
+  behavior_policy?: BehaviorPolicy;
+};
+
 type Turn = {
   id: string;
   speaker: "user" | "assistant";
@@ -115,6 +129,7 @@ function App() {
   const [sessionId, setSessionId] = useState(loadSessionId);
   const [sessionState, setSessionState] = useState<SessionState | null>(null);
   const [sessionRestoreStatus, setSessionRestoreStatus] = useState("Checking backend session...");
+  const [behaviorPolicy, setBehaviorPolicy] = useState<BehaviorPolicy | null>(null);
   const [diagnosticEvents, setDiagnosticEvents] = useState<DiagnosticEvent[]>([]);
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -152,6 +167,10 @@ function App() {
   useEffect(() => {
     void hydrateSessionState(sessionId);
   }, [sessionId]);
+
+  useEffect(() => {
+    void loadRealtimeConfig();
+  }, []);
 
   useEffect(() => {
     chatScrollRef.current?.scrollTo({
@@ -330,6 +349,25 @@ function App() {
 
       setSessionRestoreStatus(`Could not fetch backend session state: ${message}`);
       addDiagnosticEvent("session:hydrate_error", message);
+    }
+  }
+
+  async function loadRealtimeConfig() {
+    try {
+      const response = await fetch(`${BACKEND_URL}/realtime-config`);
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const config = (await response.json()) as RealtimeConfig;
+
+      if (config.behavior_policy) {
+        setBehaviorPolicy(config.behavior_policy);
+        addDiagnosticEvent("policy:loaded", config.behavior_policy.policy_version);
+      }
+    } catch (error) {
+      addDiagnosticEvent("policy:load_error", formatError(error));
     }
   }
 
@@ -519,13 +557,7 @@ function App() {
           type: "response.create",
           response: {
             output_modalities: ["audio"],
-            instructions: [
-              "Puhu rennolla, luontevalla suomella.",
-              "Sano alla oleva backend-hyväksytty teksti mahdollisimman täsmällisesti.",
-              "Älä lisää uutta faktaa, uutta vaihetta tai lisäohjetta.",
-              "Pidä puhe alle neljässä sekunnissa.",
-              `Backend-hyväksytty teksti: ${text}`,
-            ].join(" "),
+            instructions: buildApprovedSpeechInstructions(text, behaviorPolicy),
           },
         })
       );
@@ -877,6 +909,19 @@ function App() {
                   <BadgeCheckIcon className="text-muted-foreground" />
                   <span>Assistant audio is resolver-approved.</span>
                 </div>
+                <Separator />
+                <DebugRow
+                  label="policy_version"
+                  value={behaviorPolicy?.policy_version ?? "-"}
+                />
+                <DebugRow
+                  label="short_turn_seconds"
+                  value={formatDebugValue(behaviorPolicy?.short_turn_seconds)}
+                />
+                <DebugRow
+                  label="max_steps_per_turn"
+                  value={formatDebugValue(behaviorPolicy?.max_steps_per_turn)}
+                />
               </CardContent>
             </Card>
           </aside>
@@ -916,6 +961,33 @@ function formatDebugValue(value: boolean | string | number | null | undefined) {
   }
 
   return String(value);
+}
+
+function buildApprovedSpeechInstructions(text: string, policy: BehaviorPolicy | null) {
+  if (!policy) {
+    return [
+      "Sano alla oleva backend-hyväksytty teksti mahdollisimman täsmällisesti.",
+      "Älä lisää uutta faktaa, uutta vaihetta tai lisäohjetta.",
+      `Backend-hyväksytty teksti: ${text}`,
+    ].join(" ");
+  }
+
+  const fillerInstruction = policy.natural_fillers_allowed
+    ? "Lyhyet luontevat suomen täytesanat ovat sallittuja vain jos sisältö ei muutu."
+    : "Älä lisää täytesanoja.";
+
+  return [
+    `Puhu tällä policy-tyylillä: ${policy.tone}.`,
+    `Pidä puhe alle noin ${policy.short_turn_seconds} sekunnissa.`,
+    `Älä lisää uusia vaiheita; enintään ${policy.max_steps_per_turn} vianrajausvaihe per vuoro.`,
+    fillerInstruction,
+    policy.confirmation_required_after_step
+      ? "Jos hyväksytty teksti kysyy varmistuksen, lopeta siihen."
+      : "Älä lisää varmistuskysymystä, ellei hyväksytty teksti sisällä sitä.",
+    "Sano alla oleva backend-hyväksytty teksti mahdollisimman täsmällisesti.",
+    "Älä lisää uutta faktaa, uutta vaihetta tai lisäohjetta.",
+    `Backend-hyväksytty teksti: ${text}`,
+  ].join(" ");
 }
 
 function sessionStateToDecision(state: SessionState): Decision {

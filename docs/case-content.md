@@ -12,6 +12,7 @@ Owns:
 - max steps per turn
 - allowed follow-up types
 - escalation keywords
+- confirmation requirement after troubleshooting steps
 
 Does not own:
 
@@ -19,6 +20,8 @@ Does not own:
 - case keywords
 - approved Finnish replies
 - retry or clarification text
+
+The backend also exposes the compiled behavior policy through `/realtime-config`, so the browser speech layer can build per-turn Realtime instructions from the same source as the resolver.
 
 ## Sparse Drafts
 

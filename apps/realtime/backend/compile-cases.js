@@ -115,7 +115,7 @@ function expandDraft(draft) {
     step_id: requiredString(step, "step_id", draft.case_id),
     approved_text_fi: joinSentences([
       requiredString(step, "action", draft.case_id),
-      step.confirmation,
+      behaviorPolicy.confirmation_required_after_step ? step.confirmation : null,
     ]),
     retry_text_fi: requiredString(step, "retry_hint", draft.case_id),
     clarify_text_fi: requiredString(step, "clarify_hint", draft.case_id),

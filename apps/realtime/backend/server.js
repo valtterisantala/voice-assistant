@@ -1,7 +1,7 @@
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
-const { getSessionState, resolveTurn } = require("./resolver");
+const { behaviorPolicy, getSessionState, resolveTurn } = require("./resolver");
 
 loadLocalEnv();
 
@@ -22,12 +22,7 @@ const REALTIME_VAD_SILENCE_DURATION_MS = Number(
 );
 const DEFAULT_REALTIME_PROMPT_ID = "pmpt_69eafbd8d1d881938d6169b79a9cb4a90cee44e456b6540a";
 const DEFAULT_REALTIME_PROMPT_VERSION = "2";
-const REALTIME_INSTRUCTIONS = [
-  "You are a Neste customer service specialist for generic gas station mobile app scenarios.",
-  "Speak concise, calm, natural Finnish.",
-  "Only verbalize the exact backend-approved Finnish response provided in each turn.",
-  "Do not invent company policy, app features, next steps, or facts.",
-].join(" ");
+const REALTIME_INSTRUCTIONS = buildRealtimeInstructions(behaviorPolicy);
 
 const server = http.createServer(async (request, response) => {
   if (request.method === "OPTIONS") {
@@ -236,6 +231,36 @@ function publicRealtimeConfig() {
     transcription_model: REALTIME_TRANSCRIPTION_MODEL,
     transcription_language: REALTIME_TRANSCRIPTION_LANGUAGE,
     prompt,
+    behavior_policy: publicBehaviorPolicy(),
+  };
+}
+
+function buildRealtimeInstructions(policy) {
+  const fillerInstruction = policy.natural_fillers_allowed
+    ? "Tiny natural Finnish softeners are allowed only if they do not change the approved content."
+    : "Do not add filler words or extra softeners.";
+
+  return [
+    "You are a customer service specialist for generic gas station mobile app scenarios.",
+    `Use this compiled behavior policy tone: ${policy.tone}.`,
+    `Keep spoken turns under roughly ${policy.short_turn_seconds} seconds.`,
+    `Give at most ${policy.max_steps_per_turn} troubleshooting step per assistant turn.`,
+    fillerInstruction,
+    "Only verbalize the exact backend-approved Finnish response provided in each turn.",
+    "Do not invent company policy, app features, next steps, or facts.",
+    "If the approved response asks a confirmation question, stop after that question.",
+  ].join(" ");
+}
+
+function publicBehaviorPolicy() {
+  return {
+    policy_version: behaviorPolicy.policy_version,
+    max_steps_per_turn: behaviorPolicy.max_steps_per_turn,
+    tone: behaviorPolicy.tone,
+    natural_fillers_allowed: behaviorPolicy.natural_fillers_allowed,
+    short_turn_seconds: behaviorPolicy.short_turn_seconds,
+    confirmation_required_after_step: behaviorPolicy.confirmation_required_after_step,
+    allowed_followup_types: behaviorPolicy.allowed_followup_types,
   };
 }
 

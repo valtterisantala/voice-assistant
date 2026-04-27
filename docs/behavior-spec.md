@@ -44,3 +44,23 @@ The generated behavior policy owns how the resolver should behave around that co
 ## Realtime Delivery
 
 Realtime may make the approved Finnish text sound natural, but it must preserve the backend-approved facts and step intent. It must not add more steps. It must not continue to the next step until the backend resolver returns that step.
+
+## Runtime Boundaries
+
+The compiled policy is consumed at runtime for:
+
+- Realtime session speech instructions
+- per-turn Realtime response instructions in the browser
+- allowed follow-up type filtering
+- escalation keyword handling
+- whether troubleshooting steps wait for confirmation
+- published debug/config metadata such as policy version, turn length, and max steps per turn
+
+The following pieces remain deterministic code or case content for this POC:
+
+- keyword lists that map a transcript to one of the five demo cases
+- Finnish approved reply text, retry text, and clarification text
+- retry count before demo escalation
+- technical Realtime/WebRTC settings such as VAD timing and voice selection
+
+Those hardcoded pieces are intentionally outside the behavior policy until the next case layer or simulated KB exists.

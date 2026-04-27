@@ -63,6 +63,7 @@ type BehaviorPolicy = {
   short_turn_seconds: number;
   confirmation_required_after_step: boolean;
   allowed_followup_types: string[];
+  escalation_keywords: string[];
 };
 
 type RealtimeConfig = {
@@ -976,6 +977,8 @@ function buildApprovedSpeechInstructions(text: string, policy: BehaviorPolicy | 
     ? "Lyhyet luontevat suomen täytesanat ovat sallittuja vain jos sisältö ei muutu."
     : "Älä lisää täytesanoja.";
 
+  // The backend owns the approved content. These policy fields only steer Realtime delivery
+  // style, pacing, and whether it may soften the exact approved Finnish line.
   return [
     `Puhu tällä policy-tyylillä: ${policy.tone}.`,
     `Pidä puhe alle noin ${policy.short_turn_seconds} sekunnissa.`,

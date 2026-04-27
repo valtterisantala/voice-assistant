@@ -261,6 +261,7 @@ function publicBehaviorPolicy() {
     short_turn_seconds: behaviorPolicy.short_turn_seconds,
     confirmation_required_after_step: behaviorPolicy.confirmation_required_after_step,
     allowed_followup_types: behaviorPolicy.allowed_followup_types,
+    escalation_keywords: behaviorPolicy.escalation_keywords,
   };
 }
 

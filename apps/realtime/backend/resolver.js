@@ -530,6 +530,9 @@ function getCase(caseId) {
 
 function classifyFollowup(cleanTranscript) {
   for (const [followupType, keywords] of Object.entries(followupMatchers)) {
+    // The compiled policy controls which follow-up categories are active.
+    // The Finnish keyword matchers below are still deterministic POC routing,
+    // not a generated semantic model.
     if (!allowedFollowupTypes.has(followupType)) {
       continue;
     }

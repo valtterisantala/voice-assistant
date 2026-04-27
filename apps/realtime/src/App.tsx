@@ -583,7 +583,7 @@ function App() {
 
   return (
     <main className="h-screen overflow-hidden bg-background">
-      <div className="mx-auto flex h-screen w-full max-w-6xl flex-col gap-5 px-5 py-5">
+      <div className="mx-auto flex h-screen w-full max-w-7xl flex-col gap-5 px-5 py-5">
         <header className="flex flex-none flex-col gap-4 border-b pb-5 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium text-muted-foreground">Realtime POC</p>
@@ -619,7 +619,7 @@ function App() {
           </div>
         ) : null}
 
-        <section className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_300px_320px]">
           <Card className="flex min-h-0 flex-col">
             <CardHeader>
               <div className="flex items-start justify-between gap-4">
@@ -732,13 +732,15 @@ function App() {
                 <DebugRow label="match_reason" value={decision?.match_reason ?? "-"} />
               </CardContent>
             </Card>
+          </aside>
 
-            <Card>
+          <aside className="flex min-h-0 flex-col gap-5 overflow-hidden">
+            <Card className="flex min-h-0 flex-[1.6] flex-col">
               <CardHeader>
                 <CardTitle>Event log</CardTitle>
                 <CardDescription>Session and Realtime diagnostics.</CardDescription>
               </CardHeader>
-              <CardContent className="flex max-h-56 flex-col gap-2 overflow-y-auto text-xs">
+              <CardContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-2 text-xs">
                 {diagnosticEvents.length === 0 ? (
                   <span className="text-muted-foreground">No events yet.</span>
                 ) : (
@@ -757,7 +759,7 @@ function App() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="flex-none">
               <CardHeader>
                 <CardTitle>Voice layer</CardTitle>
                 <CardDescription>Realtime output status.</CardDescription>

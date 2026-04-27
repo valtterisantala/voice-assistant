@@ -369,6 +369,13 @@ function buildDecision({
   reset_reason = null,
   match_reason = null,
 }) {
+  const nextCoverageTier = coverageTier(match_reason);
+
+  if (session) {
+    session.last_match_reason = match_reason;
+    session.last_coverage_tier = nextCoverageTier;
+  }
+
   return {
     mode,
     approved_text_fi,
@@ -381,7 +388,7 @@ function buildDecision({
     last_topic: session ? lastCaseId(session) : null,
     reset_reason,
     match_reason,
-    coverage_tier: coverageTier(match_reason),
+    coverage_tier: nextCoverageTier,
   };
 }
 
@@ -551,10 +558,47 @@ function getSession(sessionId) {
       retry_count: 0,
       case_history: [],
       last_reset_reason: null,
+      last_match_reason: null,
+      last_coverage_tier: null,
     });
   }
 
   return sessions.get(sessionId);
+}
+
+function getSessionState(sessionId) {
+  const normalizedSessionId = normalizeSessionId(sessionId);
+  const session = sessions.get(normalizedSessionId);
+
+  if (!session) {
+    return {
+      session_id: normalizedSessionId,
+      exists: false,
+      active: false,
+      case_id: null,
+      step_id: null,
+      awaits_confirmation: false,
+      retry_count: 0,
+      last_topic: null,
+      reset_reason: null,
+      match_reason: null,
+      coverage_tier: "missing",
+    };
+  }
+
+  return {
+    session_id: normalizedSessionId,
+    exists: true,
+    active: Boolean(session.case_id || session.step_id || session.awaiting_confirmation),
+    case_id: session.case_id,
+    step_id: session.step_id,
+    awaits_confirmation: session.awaiting_confirmation,
+    retry_count: session.retry_count,
+    last_topic: lastCaseId(session),
+    reset_reason: session.last_reset_reason,
+    match_reason: session.last_match_reason ?? null,
+    coverage_tier: session.last_coverage_tier ?? null,
+  };
 }
 
 function resetActiveCase(session, reason) {
@@ -601,5 +645,6 @@ function normalizeSessionId(sessionId) {
 module.exports = {
   behaviorPolicy,
   caseDialogue,
+  getSessionState,
   resolveTurn,
 };

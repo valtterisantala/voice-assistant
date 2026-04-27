@@ -1,7 +1,7 @@
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
-const { resolveTurn } = require("./resolver");
+const { getSessionState, resolveTurn } = require("./resolver");
 
 loadLocalEnv();
 
@@ -36,17 +36,24 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (request.method === "GET" && request.url === "/health") {
+  const requestUrl = new URL(request.url, `http://${request.headers.host ?? HOST}`);
+
+  if (request.method === "GET" && requestUrl.pathname === "/health") {
     sendJson(response, 200, { ok: true });
     return;
   }
 
-  if (request.method === "GET" && request.url === "/realtime-config") {
+  if (request.method === "GET" && requestUrl.pathname === "/realtime-config") {
     sendJson(response, 200, publicRealtimeConfig());
     return;
   }
 
-  if (request.method === "POST" && request.url === "/resolve-turn") {
+  if (request.method === "GET" && requestUrl.pathname === "/session-state") {
+    sendJson(response, 200, getSessionState(requestUrl.searchParams.get("session_id")));
+    return;
+  }
+
+  if (request.method === "POST" && requestUrl.pathname === "/resolve-turn") {
     const body = await readJsonBody(request);
     const decision = resolveTurn(body?.transcript, {
       session_id: body?.session_id,
@@ -56,7 +63,7 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (request.method === "POST" && request.url === "/realtime-session") {
+  if (request.method === "POST" && requestUrl.pathname === "/realtime-session") {
     const sdp = await readTextBody(request);
 
     if (!process.env.OPENAI_API_KEY) {

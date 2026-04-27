@@ -79,6 +79,14 @@ This local compiler expands sparse drafts into deterministic runtime dialogue. T
 
 At runtime the resolver keeps lightweight in-memory session state keyed by `session_id`. The browser persists that ID in `localStorage`, so refresh and reconnect reuse the same conversation until **Reset memory** is clicked. Restarting the backend clears the in-memory state even if the browser still has the same `session_id`.
 
+On startup the browser calls the backend session-state endpoint:
+
+```sh
+curl -s "http://127.0.0.1:8787/session-state?session_id=local-demo"
+```
+
+If backend state exists, the debug panel is hydrated before the next turn. If the backend has restarted or has never seen the saved `session_id`, the UI shows that the saved session ID has no backend state.
+
 The resolver returns small debug fields with each decision:
 
 - `step_id`

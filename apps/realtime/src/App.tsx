@@ -41,6 +41,20 @@ type Decision = {
   coverage_tier?: string | null;
 };
 
+type SessionState = {
+  session_id: string;
+  exists: boolean;
+  active: boolean;
+  case_id: string | null;
+  step_id: string | null;
+  awaits_confirmation: boolean;
+  retry_count: number;
+  last_topic: string | null;
+  reset_reason: string | null;
+  match_reason: string | null;
+  coverage_tier: string | null;
+};
+
 type Turn = {
   id: string;
   speaker: "user" | "assistant";
@@ -99,6 +113,8 @@ function App() {
   const [interimTranscript, setInterimTranscript] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [sessionId, setSessionId] = useState(loadSessionId);
+  const [sessionState, setSessionState] = useState<SessionState | null>(null);
+  const [sessionRestoreStatus, setSessionRestoreStatus] = useState("Checking backend session...");
   const [diagnosticEvents, setDiagnosticEvents] = useState<DiagnosticEvent[]>([]);
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -131,6 +147,10 @@ function App() {
   useEffect(() => {
     sessionIdRef.current = sessionId;
     persistSessionId(sessionId);
+  }, [sessionId]);
+
+  useEffect(() => {
+    void hydrateSessionState(sessionId);
   }, [sessionId]);
 
   useEffect(() => {
@@ -246,6 +266,10 @@ function App() {
     resetPendingAssistant();
     setTurns([]);
     setDecision(null);
+    setSessionState(null);
+    setSessionRestoreStatus(
+      "Started a new local session. Backend state will appear after the first turn."
+    );
     setDraft("");
     setInterimTranscript("");
     setErrorMessage("");
@@ -253,6 +277,60 @@ function App() {
     persistSessionId(nextSessionId);
     setSessionId(nextSessionId);
     addDiagnosticEvent("session:reset", nextSessionId);
+  }
+
+  async function hydrateSessionState(
+    nextSessionId: string,
+    options: { hydrateDecision?: boolean; reason?: "startup" | "post-turn" } = {}
+  ) {
+    const hydrateDecision = options.hydrateDecision ?? true;
+    const reason = options.reason ?? "startup";
+
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/session-state?session_id=${encodeURIComponent(nextSessionId)}`
+      );
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const nextSessionState = (await response.json()) as SessionState;
+      setSessionState(nextSessionState);
+
+      if (hydrateDecision) {
+        setDecision(sessionStateToDecision(nextSessionState));
+      }
+
+      if (nextSessionState.exists) {
+        const status =
+          reason === "post-turn"
+            ? "Backend session state updated from latest turn."
+            : nextSessionState.active
+              ? "Restored active backend session state."
+              : "Backend session exists, but no active case is set.";
+        setSessionRestoreStatus(status);
+        addDiagnosticEvent(
+          reason === "post-turn" ? "session:refreshed" : "session:hydrated",
+          status
+        );
+      } else {
+        const status =
+          "No backend state found for this saved session ID. The backend may have restarted.";
+        setSessionRestoreStatus(status);
+        addDiagnosticEvent("session:missing", nextSessionId);
+      }
+    } catch (error) {
+      const message = formatError(error);
+      setSessionState(null);
+
+      if (hydrateDecision) {
+        setDecision(sessionStateToDecision(missingSessionState(nextSessionId)));
+      }
+
+      setSessionRestoreStatus(`Could not fetch backend session state: ${message}`);
+      addDiagnosticEvent("session:hydrate_error", message);
+    }
   }
 
   async function handleRealtimeEvent(rawEvent: string) {
@@ -355,6 +433,10 @@ function App() {
     try {
       const nextDecision = await resolveTurn(cleanTranscript);
       setDecision(nextDecision);
+      void hydrateSessionState(nextDecision.session_id ?? sessionIdRef.current, {
+        hydrateDecision: false,
+        reason: "post-turn",
+      });
       addDiagnosticEvent(
         `resolver:${nextDecision.mode}`,
         [nextDecision.case_id, nextDecision.step_id, nextDecision.match_reason]
@@ -705,16 +787,31 @@ function App() {
             <Card>
               <CardHeader>
                 <CardTitle>Decision</CardTitle>
-                <CardDescription>Backend resolver continuity.</CardDescription>
+                <CardDescription>{sessionRestoreStatus}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <DebugRow label="session_id" value={decision?.session_id ?? sessionId} />
+                <Separator />
+                <DebugRow
+                  label="backend_session_exists"
+                  value={formatDebugValue(sessionState?.exists)}
+                />
+                <Separator />
+                <DebugRow
+                  label="backend_session_active"
+                  value={formatDebugValue(sessionState?.active)}
+                />
                 <Separator />
                 <DebugRow label="mode" value={decision?.mode ?? "-"} />
                 <Separator />
                 <DebugRow label="case_id" value={decision?.case_id ?? "-"} />
                 <Separator />
                 <DebugRow label="step_id" value={decision?.step_id ?? "-"} />
+                <Separator />
+                <DebugRow
+                  label="retry_count"
+                  value={formatDebugValue(sessionState?.retry_count)}
+                />
                 <Separator />
                 <DebugRow
                   label="awaits_confirmation"
@@ -819,6 +916,38 @@ function formatDebugValue(value: boolean | string | number | null | undefined) {
   }
 
   return String(value);
+}
+
+function sessionStateToDecision(state: SessionState): Decision {
+  return {
+    mode: "clarify",
+    approved_text_fi: "",
+    case_id: state.case_id ?? "-",
+    confidence: state.exists ? 1 : 0,
+    step_id: state.step_id ?? "-",
+    awaits_confirmation: state.awaits_confirmation,
+    session_id: state.session_id,
+    last_topic: state.last_topic,
+    reset_reason: state.reset_reason,
+    match_reason: state.match_reason,
+    coverage_tier: state.coverage_tier,
+  };
+}
+
+function missingSessionState(sessionId: string): SessionState {
+  return {
+    session_id: sessionId,
+    exists: false,
+    active: false,
+    case_id: null,
+    step_id: null,
+    awaits_confirmation: false,
+    retry_count: 0,
+    last_topic: null,
+    reset_reason: null,
+    match_reason: null,
+    coverage_tier: "missing",
+  };
 }
 
 function loadSessionId() {

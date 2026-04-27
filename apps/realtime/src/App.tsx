@@ -6,6 +6,7 @@ import {
   MicOffIcon,
   PhoneCallIcon,
   PhoneOffIcon,
+  RotateCcwIcon,
   SendIcon,
   Volume2Icon,
 } from "lucide-react";
@@ -34,6 +35,9 @@ type Decision = {
   awaits_confirmation?: boolean;
   allowed_followup_types?: string[];
   session_id?: string;
+  last_topic?: string | null;
+  reset_reason?: string | null;
+  match_reason?: string | null;
 };
 
 type Turn = {
@@ -45,6 +49,13 @@ type Turn = {
 
 type ConnectionState = "idle" | "connecting" | "connected" | "error";
 type SpeechState = "idle" | "listening" | "resolving" | "speaking";
+
+type DiagnosticEvent = {
+  id: string;
+  time: string;
+  label: string;
+  detail?: string;
+};
 
 type RealtimeEvent = {
   type?: string;
@@ -61,6 +72,7 @@ type RealtimeEvent = {
 };
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://127.0.0.1:8787";
+const SESSION_STORAGE_KEY = "voice-assistant:realtime-session-id";
 const USER_TURN_GRACE_MS = 250;
 
 const statusCopy: Record<ConnectionState, string> = {
@@ -85,6 +97,8 @@ function App() {
   const [draft, setDraft] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [sessionId, setSessionId] = useState(loadSessionId);
+  const [diagnosticEvents, setDiagnosticEvents] = useState<DiagnosticEvent[]>([]);
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
@@ -99,7 +113,7 @@ function App() {
   const pendingAssistantModeRef = useRef<DecisionMode>("answer");
   const speechStateRef = useRef<SpeechState>("idle");
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
-  const sessionIdRef = useRef(crypto.randomUUID());
+  const sessionIdRef = useRef(sessionId);
 
   const isConnected = connectionState === "connected";
 
@@ -114,6 +128,11 @@ function App() {
   }, [speechState]);
 
   useEffect(() => {
+    sessionIdRef.current = sessionId;
+    persistSessionId(sessionId);
+  }, [sessionId]);
+
+  useEffect(() => {
     chatScrollRef.current?.scrollTo({
       top: chatScrollRef.current.scrollHeight,
       behavior: "smooth",
@@ -123,6 +142,7 @@ function App() {
   async function connect() {
     setErrorMessage("");
     setConnectionState("connecting");
+    addDiagnosticEvent("connect:start", sessionIdRef.current);
 
     try {
       const peerConnection = new RTCPeerConnection();
@@ -185,11 +205,14 @@ function App() {
 
       setConnectionState("connected");
       setSpeechState("listening");
+      addDiagnosticEvent("connect:ready", sessionIdRef.current);
     } catch (error) {
       disconnect();
       setConnectionState("error");
       setSpeechState("idle");
-      setErrorMessage(formatError(error));
+      const message = formatError(error);
+      setErrorMessage(message);
+      addDiagnosticEvent("connect:error", message);
     }
   }
 
@@ -211,6 +234,24 @@ function App() {
     setInterimTranscript("");
     setSpeechState("idle");
     setConnectionState("idle");
+    addDiagnosticEvent("disconnect", sessionIdRef.current);
+  }
+
+  function resetConversation() {
+    const nextSessionId = crypto.randomUUID();
+    clearSpeechRecoveryTimeout();
+    clearTurnResolutionTimeout();
+    pendingTranscriptRef.current = "";
+    resetPendingAssistant();
+    setTurns([]);
+    setDecision(null);
+    setDraft("");
+    setInterimTranscript("");
+    setErrorMessage("");
+    sessionIdRef.current = nextSessionId;
+    persistSessionId(nextSessionId);
+    setSessionId(nextSessionId);
+    addDiagnosticEvent("session:reset", nextSessionId);
   }
 
   async function handleRealtimeEvent(rawEvent: string) {
@@ -222,6 +263,7 @@ function App() {
 
     if (realtimeEvent.type === "input_audio_buffer.speech_started") {
       if (speechStateRef.current === "resolving" || speechStateRef.current === "speaking") {
+        addDiagnosticEvent("realtime:ignored_user_audio", speechStateRef.current);
         return;
       }
 
@@ -230,6 +272,7 @@ function App() {
       }
 
       setSpeechState("listening");
+      addDiagnosticEvent("realtime:speech_started");
       return;
     }
 
@@ -238,6 +281,7 @@ function App() {
       realtimeEvent.delta
     ) {
       if (speechStateRef.current === "resolving" || speechStateRef.current === "speaking") {
+        addDiagnosticEvent("realtime:ignored_user_transcript", speechStateRef.current);
         return;
       }
 
@@ -250,9 +294,11 @@ function App() {
       realtimeEvent.transcript
     ) {
       if (speechStateRef.current === "resolving" || speechStateRef.current === "speaking") {
+        addDiagnosticEvent("realtime:ignored_user_final", speechStateRef.current);
         return;
       }
 
+      addDiagnosticEvent("realtime:user_final", realtimeEvent.transcript);
       queueFinalTranscript(realtimeEvent.transcript);
       return;
     }
@@ -267,6 +313,7 @@ function App() {
 
       if (transcript) {
         setAssistantSpeechTranscript(transcript);
+        addDiagnosticEvent("realtime:assistant_transcript", transcript);
       }
 
       return;
@@ -280,13 +327,16 @@ function App() {
       clearSpeechRecoveryTimeout();
       flushPendingAssistantFallback();
       setSpeechState(peerConnectionRef.current ? "listening" : "idle");
+      addDiagnosticEvent("realtime:response_done");
       return;
     }
 
     if (realtimeEvent.type === "error") {
       clearSpeechRecoveryTimeout();
       setSpeechState("idle");
-      setErrorMessage(realtimeEvent.error?.message ?? "Realtime session error");
+      const message = realtimeEvent.error?.message ?? "Realtime session error";
+      setErrorMessage(message);
+      addDiagnosticEvent("realtime:error", message);
     }
   }
 
@@ -304,10 +354,18 @@ function App() {
     try {
       const nextDecision = await resolveTurn(cleanTranscript);
       setDecision(nextDecision);
+      addDiagnosticEvent(
+        `resolver:${nextDecision.mode}`,
+        [nextDecision.case_id, nextDecision.step_id, nextDecision.match_reason]
+          .filter(Boolean)
+          .join(" | ")
+      );
       speakApprovedText(nextDecision.approved_text_fi, nextDecision.mode);
     } catch (error) {
       setSpeechState("idle");
-      setErrorMessage(formatError(error));
+      const message = formatError(error);
+      setErrorMessage(message);
+      addDiagnosticEvent("resolver:error", message);
     }
   }
 
@@ -394,6 +452,7 @@ function App() {
     resetPendingAssistant();
     setSpeechState("idle");
     setErrorMessage("Realtime data channel is not open. Connect before sending a turn.");
+    addDiagnosticEvent("realtime:error", "Data channel is not open");
   }
 
   function startSpeechRecoveryTimeout() {
@@ -504,6 +563,24 @@ function App() {
     pendingAssistantModeRef.current = "answer";
   }
 
+  function addDiagnosticEvent(label: string, detail?: string) {
+    setDiagnosticEvents((current) =>
+      [
+        {
+          id: crypto.randomUUID(),
+          time: new Date().toLocaleTimeString("fi-FI", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+          label,
+          detail,
+        },
+        ...current,
+      ].slice(0, 8)
+    );
+  }
+
   return (
     <main className="h-screen overflow-hidden bg-background">
       <div className="mx-auto flex h-screen w-full max-w-6xl flex-col gap-5 px-5 py-5">
@@ -524,6 +601,14 @@ function App() {
             <Button variant="outline" onClick={disconnect} disabled={!isConnected}>
               <PhoneOffIcon data-icon="inline-start" />
               Disconnect
+            </Button>
+            <Button
+              variant="outline"
+              onClick={resetConversation}
+              disabled={speechState === "resolving" || speechState === "speaking"}
+            >
+              <RotateCcwIcon data-icon="inline-start" />
+              Reset memory
             </Button>
           </div>
         </header>
@@ -615,21 +700,60 @@ function App() {
             </CardContent>
           </Card>
 
-          <aside className="flex flex-col gap-5">
+          <aside className="flex min-h-0 flex-col gap-5 overflow-y-auto pr-1">
             <Card>
               <CardHeader>
                 <CardTitle>Decision</CardTitle>
-                <CardDescription>Backend resolver output.</CardDescription>
+                <CardDescription>Backend resolver continuity.</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
+                <DebugRow label="session_id" value={decision?.session_id ?? sessionId} />
+                <Separator />
                 <DebugRow label="mode" value={decision?.mode ?? "-"} />
                 <Separator />
                 <DebugRow label="case_id" value={decision?.case_id ?? "-"} />
+                <Separator />
+                <DebugRow label="step_id" value={decision?.step_id ?? "-"} />
+                <Separator />
+                <DebugRow
+                  label="awaits_confirmation"
+                  value={formatDebugValue(decision?.awaits_confirmation)}
+                />
                 <Separator />
                 <DebugRow
                   label="confidence"
                   value={decision ? decision.confidence.toFixed(2) : "-"}
                 />
+                <Separator />
+                <DebugRow label="last_topic" value={decision?.last_topic ?? "-"} />
+                <Separator />
+                <DebugRow label="reset_reason" value={decision?.reset_reason ?? "-"} />
+                <Separator />
+                <DebugRow label="match_reason" value={decision?.match_reason ?? "-"} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Event log</CardTitle>
+                <CardDescription>Session and Realtime diagnostics.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex max-h-56 flex-col gap-2 overflow-y-auto text-xs">
+                {diagnosticEvents.length === 0 ? (
+                  <span className="text-muted-foreground">No events yet.</span>
+                ) : (
+                  diagnosticEvents.map((event) => (
+                    <div key={event.id} className="rounded-md border bg-muted/20 px-2 py-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium">{event.label}</span>
+                        <span className="text-muted-foreground">{event.time}</span>
+                      </div>
+                      {event.detail ? (
+                        <p className="mt-1 break-words text-muted-foreground">{event.detail}</p>
+                      ) : null}
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
 
@@ -682,6 +806,36 @@ function DebugRow({ label, value }: { label: string; value: string }) {
       <span className="break-words text-sm font-medium">{value}</span>
     </div>
   );
+}
+
+function formatDebugValue(value: boolean | string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
+  return String(value);
+}
+
+function loadSessionId() {
+  try {
+    const storedSessionId = window.localStorage.getItem(SESSION_STORAGE_KEY)?.trim();
+
+    if (storedSessionId) {
+      return storedSessionId;
+    }
+  } catch {
+    // Keep local dev resilient if storage is unavailable.
+  }
+
+  return crypto.randomUUID();
+}
+
+function persistSessionId(sessionId: string) {
+  try {
+    window.localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+  } catch {
+    // Session continuity falls back to the current React state.
+  }
 }
 
 function isAssistantTranscriptDelta(realtimeEvent: RealtimeEvent) {

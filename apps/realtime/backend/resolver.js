@@ -77,6 +77,8 @@ function resolveTurn(transcript, options = {}) {
       step_id: session.step_id ?? "general_choose_area",
       awaits_confirmation: false,
       session_id: sessionId,
+      session,
+      match_reason: "empty_transcript",
     });
   }
 
@@ -84,7 +86,8 @@ function resolveTurn(transcript, options = {}) {
     containsAny(cleanTranscript, behaviorPolicy.escalation_keywords) ||
     containsAny(cleanTranscript, escalationKeywordFallbacks)
   ) {
-    resetActiveCase(session);
+    const resetReason = "escalation_keyword";
+    resetActiveCase(session, resetReason);
     return buildDecision({
       mode: "escalate",
       approved_text_fi:
@@ -94,11 +97,15 @@ function resolveTurn(transcript, options = {}) {
       step_id: "escalate_billing",
       awaits_confirmation: false,
       session_id: sessionId,
+      session,
+      reset_reason: resetReason,
+      match_reason: "escalation_keyword",
     });
   }
 
   if (session.awaiting_confirmation && session.case_id) {
-    const explicitCase = findCase(cleanTranscript);
+    const explicitCaseMatch = findCase(cleanTranscript);
+    const explicitCase = explicitCaseMatch?.caseConfig;
     const followupType = classifyFollowup(cleanTranscript);
 
     if (
@@ -107,17 +114,19 @@ function resolveTurn(transcript, options = {}) {
       explicitCase.case_id !== session.case_id &&
       followupType === "unknown"
     ) {
-      return startCase(session, explicitCase, sessionId);
+      return startCase(session, explicitCase, sessionId, `topic_switch:${explicitCaseMatch.match_reason}`);
     }
 
     return resolveFollowup(cleanTranscript, session, sessionId);
   }
 
-  const matchedCase = findCase(cleanTranscript);
+  const caseMatch = findCase(cleanTranscript);
+  const matchedCase = caseMatch?.caseConfig;
 
   if (!matchedCase || matchedCase.case_id === "general_app_help") {
     const recentCaseId = lastCaseId(session);
-    resetActiveCase(session);
+    const resetReason = matchedCase ? "general_app_help" : "no_case_match";
+    resetActiveCase(session, resetReason);
 
     if (recentCaseId && recentCaseId !== "general_app_help") {
       return buildDecision({
@@ -128,6 +137,9 @@ function resolveTurn(transcript, options = {}) {
         step_id: "confirm_recent_topic",
         awaits_confirmation: false,
         session_id: sessionId,
+        session,
+        reset_reason: resetReason,
+        match_reason: "recent_topic_clarification",
       });
     }
 
@@ -139,10 +151,13 @@ function resolveTurn(transcript, options = {}) {
       step_id: firstStep("general_app_help").step_id,
       awaits_confirmation: false,
       session_id: sessionId,
+      session,
+      reset_reason: resetReason,
+      match_reason: caseMatch?.match_reason ?? "no_case_match",
     });
   }
 
-  return startCase(session, matchedCase, sessionId);
+  return startCase(session, matchedCase, sessionId, caseMatch.match_reason);
 }
 
 function resolveFollowup(cleanTranscript, session, sessionId) {
@@ -155,7 +170,8 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
     const nextStep = currentCase.steps[nextStepIndex];
 
     if (!nextStep) {
-      resetActiveCase(session);
+      const resetReason = "case_complete";
+      resetActiveCase(session, resetReason);
       return buildDecision({
         mode: "answer",
         approved_text_fi: "Hyvä, homma kunnossa. Tarvitsetko vielä muuta apua?",
@@ -164,6 +180,9 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
         step_id: "case_complete",
         awaits_confirmation: false,
         session_id: sessionId,
+        session,
+        reset_reason: resetReason,
+        match_reason: "followup:yes",
       });
     }
 
@@ -171,7 +190,7 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
     session.step_id = nextStep.step_id;
     session.awaiting_confirmation = true;
     session.retry_count = 0;
-    return stepDecision(currentCase, nextStep, sessionId, 0.82);
+    return stepDecision(currentCase, nextStep, sessionId, 0.82, session, "followup:yes");
   }
 
   if (followupType === "cannot_find") {
@@ -184,6 +203,8 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
       step_id: currentStep.step_id,
       awaits_confirmation: true,
       session_id: sessionId,
+      session,
+      match_reason: "followup:cannot_find",
     });
   }
 
@@ -196,6 +217,8 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
       step_id: currentStep.step_id,
       awaits_confirmation: true,
       session_id: sessionId,
+      session,
+      match_reason: "followup:unclear",
     });
   }
 
@@ -203,7 +226,8 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
     session.retry_count += 1;
 
     if (session.retry_count >= 2) {
-      resetActiveCase(session);
+      const resetReason = "retry_limit";
+      resetActiveCase(session, resetReason);
       return buildDecision({
         mode: "escalate",
         approved_text_fi:
@@ -213,6 +237,9 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
         step_id: "retry_limit_escalation",
         awaits_confirmation: false,
         session_id: sessionId,
+        session,
+        reset_reason: resetReason,
+        match_reason: "followup:no",
       });
     }
 
@@ -224,6 +251,8 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
       step_id: currentStep.step_id,
       awaits_confirmation: true,
       session_id: sessionId,
+      session,
+      match_reason: "followup:no",
     });
   }
 
@@ -236,10 +265,12 @@ function resolveFollowup(cleanTranscript, session, sessionId) {
     step_id: currentStep.step_id,
     awaits_confirmation: true,
     session_id: sessionId,
+    session,
+    match_reason: "followup:unknown",
   });
 }
 
-function startCase(session, matchedCase, sessionId) {
+function startCase(session, matchedCase, sessionId, matchReason) {
   const step = matchedCase.steps[0];
   session.case_id = matchedCase.case_id;
   session.step_index = 0;
@@ -248,10 +279,10 @@ function startCase(session, matchedCase, sessionId) {
   session.retry_count = 0;
   rememberCase(session, matchedCase.case_id);
 
-  return stepDecision(matchedCase, step, sessionId, 0.84);
+  return stepDecision(matchedCase, step, sessionId, 0.84, session, matchReason);
 }
 
-function stepDecision(caseConfig, step, sessionId, confidence) {
+function stepDecision(caseConfig, step, sessionId, confidence, session, matchReason) {
   return buildDecision({
     mode: "answer",
     approved_text_fi: step.approved_text_fi,
@@ -260,6 +291,8 @@ function stepDecision(caseConfig, step, sessionId, confidence) {
     step_id: step.step_id,
     awaits_confirmation: true,
     session_id: sessionId,
+    session,
+    match_reason: matchReason,
   });
 }
 
@@ -271,6 +304,9 @@ function buildDecision({
   step_id,
   awaits_confirmation,
   session_id,
+  session,
+  reset_reason = null,
+  match_reason = null,
 }) {
   return {
     mode,
@@ -281,6 +317,9 @@ function buildDecision({
     awaits_confirmation,
     allowed_followup_types: behaviorPolicy.allowed_followup_types,
     session_id,
+    last_topic: session ? lastCaseId(session) : null,
+    reset_reason,
+    match_reason,
   };
 }
 
@@ -295,19 +334,36 @@ function findCase(cleanTranscript) {
         cleanTranscript,
         fallbackCaseKeywords[caseConfig.case_id] ?? []
       );
+      const score = policyScore * 3 + fallbackScore;
 
       return {
         caseConfig,
-        score: policyScore * 3 + fallbackScore,
+        score,
+        match_reason: `case_score:${caseConfig.case_id}:policy=${policyScore}:fallback=${fallbackScore}:total=${score}`,
       };
     })
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score);
 
-  return (
-    scoredCases[0]?.caseConfig ??
-    behaviorPolicy.cases.find((caseConfig) => containsAny(cleanTranscript, caseConfig.keywords))
+  if (scoredCases[0]) {
+    return {
+      caseConfig: scoredCases[0].caseConfig,
+      match_reason: scoredCases[0].match_reason,
+    };
+  }
+
+  const generalCase = behaviorPolicy.cases.find((caseConfig) =>
+    containsAny(cleanTranscript, caseConfig.keywords)
   );
+
+  if (generalCase) {
+    return {
+      caseConfig: generalCase,
+      match_reason: `general_keyword:${generalCase.case_id}`,
+    };
+  }
+
+  return null;
 }
 
 function firstStep(caseId) {
@@ -337,18 +393,20 @@ function getSession(sessionId) {
       awaiting_confirmation: false,
       retry_count: 0,
       case_history: [],
+      last_reset_reason: null,
     });
   }
 
   return sessions.get(sessionId);
 }
 
-function resetActiveCase(session) {
+function resetActiveCase(session, reason) {
   session.case_id = null;
   session.step_index = 0;
   session.step_id = null;
   session.awaiting_confirmation = false;
   session.retry_count = 0;
+  session.last_reset_reason = reason ?? null;
 }
 
 function rememberCase(session, caseId) {

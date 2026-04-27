@@ -59,7 +59,17 @@ npm run realtime:policy:compile
 
 The compiler uses the OpenAI Responses API with Structured Outputs. It is an explicit build-time step, not a per-turn runtime call.
 
-At runtime the resolver keeps lightweight in-memory session state keyed by `session_id`. It returns one step at a time, waits for confirmation, and handles short follow-ups like "joo", "ei", "en löydä", and "mitä tarkoitat". Restarting the backend clears this state.
+At runtime the resolver keeps lightweight in-memory session state keyed by `session_id`. The browser persists that ID in `localStorage`, so refresh and reconnect reuse the same conversation until **Reset memory** is clicked. Restarting the backend clears the in-memory state even if the browser still has the same `session_id`.
+
+The resolver returns small debug fields with each decision:
+
+- `step_id`
+- `awaits_confirmation`
+- `last_topic`
+- `reset_reason`
+- `match_reason`
+
+These are deterministic breadcrumbs for explaining continuity problems. They are not a fuzzy memory layer.
 
 Run the backend resolver and Realtime session proxy from the repository root:
 
@@ -83,7 +93,7 @@ Flow:
 5. The finalized Realtime transcript is sent to `/resolve-turn`.
 6. The approved Finnish resolver text is sent back to Realtime.
 7. Realtime generates and plays the assistant audio in the browser.
-8. The debug panel shows `mode`, `case_id`, and `confidence`.
+8. The debug panel shows session, case, step, match, reset, and event-log diagnostics.
 
 The text input is a debug convenience for local resolver testing. It is not the main voice path.
 
